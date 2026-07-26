@@ -292,4 +292,3 @@ Cada execução deverá registrar:
 - [ ] Fase 8 — Notificação Telegram com anexo.
 - [ ] Fase 9 — Agendamento, métricas, testes de integração e endurecimento.
 - [ ] Fase 10 — Avaliar autoaplicação somente após revisão de risco e termos.
-
