@@ -8,7 +8,7 @@ services:
       [
         "sh",
         "-c",
-        "cp /seed/config.yaml /opt/data/config.yaml && cp /seed/SOUL.md /opt/data/SOUL.md && chmod 600 /opt/data/config.yaml /opt/data/SOUL.md",
+        "cp /seed/config.yaml /opt/data/config.yaml && cp /seed/SOUL.md /opt/data/SOUL.md && chmod 644 /opt/data/config.yaml /opt/data/SOUL.md",
       ]
     volumes:
       - hermes-data:/opt/data
