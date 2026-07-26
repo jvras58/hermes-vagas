@@ -74,7 +74,7 @@ nenhuma vaga. Ele apenas usa `vagas-producao.db` e `outputs/producao/`.
    `TELEGRAM_ALLOWED_USERS`. Durante o desenvolvimento,
    `notificar_via_telegram` permanece `false`.
 
-4. Construa e suba os containers:
+4. Construa e faça a primeira inicialização dos containers:
 
    ```bash
    docker compose build
@@ -82,7 +82,62 @@ nenhuma vaga. Ele apenas usa `vagas-producao.db` e `outputs/producao/`.
    docker compose logs -f
    ```
 
-5. Abra o painel local em `http://127.0.0.1:9119`.
+Na primeira inicialização, o dashboard pode registrar que recusou o bind em
+0.0.0.0. Isso é esperado até que a autenticação seja configurada. O gateway
+e o container continuam disponíveis para a geração do hash.
+
+5. Gere o hash da senha do dashboard:
+
+   ```bash
+   docker compose exec hermes bash
+   ```
+
+   Dentro do container, execute:
+
+   ```bash
+   python -c 'from getpass import getpass; from plugins.dashboard_auth.basic import hash_password; print(hash_password(getpass("Senha do dashboard: ")))'
+   ```
+
+   Digite a senha desejada e pressione Enter. Por segurança, nenhum caractere
+   será exibido enquanto a senha estiver sendo digitada. Copie o hash
+   scrypt$... retornado e saia do container:
+
+   ```bash
+   exit
+   ```
+
+6. Gere um segredo para preservar as sessões do dashboard entre reinicializações:
+
+   ```bash
+   uv run python -c 'import secrets; print(secrets.token_hex(32))'
+   ```
+
+   Acrescente ao arquivo .env:
+
+   ```text
+   # Autenticação do dashboard Hermes.
+   HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
+   HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH='scrypt$...'
+   HERMES_DASHBOARD_BASIC_AUTH_SECRET=segredo-hexadecimal-gerado
+   ```
+   O hash deve ficar inteiro na mesma linha e entre aspas simples. Isso impede
+   que o Docker Compose interprete os caracteres $ presentes no hash. Não
+   adicione a senha em texto puro nem versione o .env.
+
+7. Recrie o Hermes para carregar as novas variáveis:
+
+   ```bash
+   docker compose up -d --force-recreate hermes
+   docker compose logs --tail=100 hermes
+   ```
+   A inicialização correta apresenta:
+
+   ```text
+   HERMES_DASHBOARD_READY port=9119
+   ```
+
+8. Abra `http://127.0.0.1:9119/auth` e entre com o usuário admin e a senha usada
+para gerar o hash.
 
 O MCP não publica porta no host. Ele só é acessível pelo Hermes na rede interna
 do Compose. A cada inicialização, `hermes-init` copia `config.yaml` e `SOUL.md`
