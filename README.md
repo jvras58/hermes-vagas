@@ -1,20 +1,18 @@
 # Hermes Job Hunter
 
-Base executável para um agente de triagem de vagas integrado ao Hermes Agent
-por MCP. A primeira versão implementa configuração validada, fonte simulada,
-filtro temporal de 48 horas, filtros determinísticos, deduplicação em SQLite,
-relatórios locais e execução isolada em Docker.
+Base executável para um agente de triagem de vagas integrado ao Hermes Agentpor MCP. A primeira versão implementa configuração validada, fonte simulada,filtro temporal de 48 horas, filtros determinísticos, deduplicação em SQLite,relatórios locais e execução isolada em Docker.
 
-LinkedIn, Gupy, análise semântica do currículo, PDF ATS e Telegram ainda não
-fazem parte desta primeira entrega.
+O provedor principal já está configurado como NVIDIA Build/NIM, usando o modeloz-ai/glm-5.2.
+
+LinkedIn, Gupy, análise semântica do currículo, PDF ATS e Telegram ainda nãofazem parte desta primeira entrega.
 
 ## Requisitos
 
 - Docker Engine com Docker Compose v2; ou
+
 - Python 3.12+ para executar o núcleo localmente.
 
 ## Teste rápido sem Docker
-
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -22,26 +20,20 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 python -m job_hunter.main scan --source mock --dry-run
 ```
-
 No PowerShell:
-
-```powershell
+```bash
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e .
 python -m unittest discover -s tests -v
 python -m job_hunter.main scan --source mock --dry-run
 ```
-
 Os resultados de teste ficam separados em:
-
 ```text
 workspace/state/vagas-dry-run.db
 workspace/outputs/dry-run/
 ```
-
 Para simular uma execução persistente de produção, ainda usando a fonte mock:
-
 ```bash
 python -m job_hunter.main scan --source mock --commit
 ```
@@ -57,12 +49,16 @@ nenhuma vaga. Ele apenas usa `vagas-producao.db` e `outputs/producao/`.
    cp .env.example .env
    ```
 
-2. Configure um provedor de modelo em `.env` e ajuste o bloco `model` de
-   `config/hermes/config.yaml`.
+2. Preencha a chave da NVIDIA em .env:
 
-3. Opcionalmente, preencha `TELEGRAM_BOT_TOKEN` e
-   `TELEGRAM_ALLOWED_USERS`. Durante o desenvolvimento,
-   `notificar_via_telegram` permanece `false`.
+```bash
+NVIDIA_API_KEY=nvapi-sua-chave
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+```
+
+3. O arquivo config/hermes/config.yaml já aponta para provider: nvidia ez-ai/glm-5.2. A chave nunca deve ser escrita nesse YAML.
+
+Opcionalmente, preencha TELEGRAM_BOT_TOKEN eTELEGRAM_ALLOWED_USERS. Durante o desenvolvimento,notificar_via_telegram permanece false.
 
 4. Construa e suba os containers:
 
@@ -72,22 +68,39 @@ nenhuma vaga. Ele apenas usa `vagas-producao.db` e `outputs/producao/`.
    docker compose logs -f
    ```
 
-5. Abra o painel local em `http://127.0.0.1:9119`.
+5. Abra o painel local em http://127.0.0.1:9119.
 
-O MCP não publica porta no host. Ele só é acessível pelo Hermes na rede interna
-do Compose. A cada inicialização, `hermes-init` copia `config.yaml` e `SOUL.md`
-para o volume persistente do Hermes; portanto, mudanças permanentes nesses dois
-arquivos devem ser feitas em `config/hermes/`.
+O MCP não publica porta no host. Ele só é acessível pelo Hermes na rede internado Compose. A cada inicialização, hermes-init copia config.yaml e SOUL.mdpara o volume persistente do Hermes; portanto, mudanças permanentes nesses doisarquivos devem ser feitas em config/hermes/.
+
+Validar a NVIDIA antes de subir o Hermes
+
+O teste abaixo usa o mesmo endpoint e modelo, mas limita a resposta a 256 tokens:
+
+```bash
+python -m pip install -e ".[providers]"
+export NVIDIA_API_KEY="nvapi-sua-chave"
+python scripts/check_nvidia.py
+```
+
+No PowerShell:
+```bash
+python -m pip install -e ".[providers]"
+$env:NVIDIA_API_KEY = "nvapi-sua-chave"
+python scripts/check_nvidia.py
+```
+
+No código Python, use os.environ["NVIDIA_API_KEY"] ou os.getenv(...).Escrever api_key="$NVIDIA_API_KEY" passa literalmente o texto$NVIDIA_API_KEY e não lê a variável.
+
+Os parâmetros temperature, top_p, max_tokens e seed do exemplo diretoficam no script de diagnóstico. O Hermes monta suas próprias chamadas deinferência e atualmente não expõe todos esses parâmetros no config.yaml.
+
+O reasoning_effort está fixado em medium. Não use ultra com esse endpointsem testar: há um erro conhecido em que a NVIDIA aceita no máximo max paraz-ai/glm-5.2 (Hermes Agent #69855).
 
 Para testar o fluxo diretamente no container:
-
 ```bash
 docker compose run --rm job-hunter-mcp \
   python -m job_hunter.main scan --source mock --dry-run
 ```
-
 ## Estrutura
-
 ```text
 .
 ├── config/hermes/             # Configuração e regras do Hermes
@@ -109,11 +122,16 @@ docker compose run --rm job-hunter-mcp \
 
 ## Decisões de segurança
 
-- O MVP bloqueia `auto apply`.
+- O MVP bloqueia auto apply.
+
 - CAPTCHA ou autenticação adicional sempre exigem intervenção humana.
-- O modo `dry-run` usa estado e saída separados da execução persistente.
+
+- O modo dry-run usa estado e saída separados da execução persistente.
+
 - Descrições de vagas são tratadas como entrada não confiável.
+
 - Credenciais ficam fora do repositório.
+
 - O currículo futuro poderá reorganizar apenas fatos existentes.
 
-Consulte [spec.md](spec.md) para a arquitetura completa e o cronograma.
+- Consulte [spec.md](spec.md) para a arquitetura completa e o cronograma.
