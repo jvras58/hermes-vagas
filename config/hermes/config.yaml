@@ -1,0 +1,34 @@
+# O modelo deve ser configurado antes do primeiro uso.
+# Exemplo:
+# model:
+#   provider: openrouter
+#   default: anthropic/claude-sonnet-4
+model:
+  provider: nvidia
+  default: z-ai/glm-5.2
+  api_mode: chat_completions
+
+agent:
+  reasoning_effort: medium
+
+terminal:
+  backend: local
+  cwd: /workspace
+
+mcp_servers:
+  job_hunter:
+    url: "http://job-hunter-mcp:8000/mcp"
+    enabled: true
+    timeout: 120
+    connect_timeout: 30
+    supports_parallel_tool_calls: false
+    tools:
+      include:
+        - scan_mock_vacancies
+        - list_recent_vacancies
+      resources: false
+      prompts: false
+
+security:
+  redact_secrets: true
+

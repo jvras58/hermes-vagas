@@ -1,0 +1,47 @@
+[
+  {
+    "id_externo": "linkedin-1001",
+    "plataforma": "linkedin",
+    "cargo": "Python Developer",
+    "empresa": "Nexus Tech",
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "descricao": "Desenvolvimento de APIs Python com FastAPI, PostgreSQL e Docker.",
+    "url": "https://example.invalid/vagas/linkedin-1001",
+    "publicada_ha_horas": 8
+  },
+  {
+    "id_externo": "gupy-2002",
+    "plataforma": "gupy",
+    "cargo": "Engenheiro de IA",
+    "empresa": "Aurora Labs",
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "descricao": "Construção de agentes de IA, avaliação de modelos e serviços Python.",
+    "url": "https://example.invalid/vagas/gupy-2002",
+    "publicada_ha_horas": 72
+  },
+  {
+    "id_externo": "linkedin-3003",
+    "plataforma": "linkedin",
+    "cargo": "Frontend React Sênior",
+    "empresa": "Interface SA",
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "descricao": "Desenvolvimento de interfaces React e design systems.",
+    "url": "https://example.invalid/vagas/linkedin-3003",
+    "publicada_ha_horas": 5
+  },
+  {
+    "id_externo": "gupy-4004",
+    "plataforma": "gupy",
+    "cargo": "Desenvolvedor Python",
+    "empresa": "Mangue Code",
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "descricao": "APIs assíncronas, integração de LLMs, SQL e containers Docker.",
+    "url": "https://example.invalid/vagas/gupy-4004",
+    "publicada_ha_horas": 12
+  }
+]
+

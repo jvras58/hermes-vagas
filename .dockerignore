@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.venv
+__pycache__
+*.pyc
+workspace/state
+workspace/outputs
+tests
+

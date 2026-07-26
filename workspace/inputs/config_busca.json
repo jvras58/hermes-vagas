@@ -1,0 +1,24 @@
+{
+  "filtros_busca": {
+    "palavras_chave": [
+      "Desenvolvedor Python",
+      "Engenheiro de IA",
+      "Python Developer"
+    ],
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "tempo_maximo_publicacao_horas": 48
+  },
+  "plataformas_ativas": {
+    "linkedin": true,
+    "gupy": true
+  },
+  "automacao": {
+    "navegacao_controlada": true,
+    "interromper_em_captcha": true,
+    "notificar_via_telegram": false,
+    "tentar_auto_apply_simplificado": false,
+    "dry_run": true
+  }
+}
+

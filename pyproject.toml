@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-job-hunter"
+version = "0.1.0"
+description = "Agente de triagem de vagas orquestrado pelo Hermes Agent e exposto via MCP."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "mcp>=1.28.1,<2",
+  "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+pdf = ["fpdf2>=2.8,<3"]
+
+[project.scripts]
+job-hunter = "job_hunter.main:main"
+job-hunter-mcp = "job_hunter.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["job_hunter*"]
+namespaces = true
+

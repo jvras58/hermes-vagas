@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+htmlcov/
+
+workspace/state/*
+!workspace/state/.gitkeep
+workspace/outputs/*
+!workspace/outputs/.gitkeep
+

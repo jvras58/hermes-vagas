@@ -1,0 +1,78 @@
+name: hermes-job-hunter
+
+services:
+  hermes-init:
+    image: alpine:3.22
+    restart: "no"
+    command:
+      [
+        "sh",
+        "-c",
+        "cp /seed/config.yaml /opt/data/config.yaml && cp /seed/SOUL.md /opt/data/SOUL.md && chmod 600 /opt/data/config.yaml /opt/data/SOUL.md",
+      ]
+    volumes:
+      - hermes-data:/opt/data
+      - ./config/hermes:/seed:ro
+
+  job-hunter-mcp:
+    build:
+      context: .
+    image: hermes-job-hunter-mcp:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      JOB_HUNTER_WORKSPACE: /app/workspace
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+    volumes:
+      - ./workspace:/app/workspace
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.create_connection(('127.0.0.1', 8000), 2); s.close()",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - agent-internal
+
+  hermes:
+    image: ${HERMES_IMAGE:-nousresearch/hermes-agent:latest}
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    env_file:
+      - .env
+    environment:
+      HERMES_DASHBOARD: "1"
+      HERMES_UID: ${HERMES_UID:-10000}
+      HERMES_GID: ${HERMES_GID:-10000}
+    depends_on:
+      hermes-init:
+        condition: service_completed_successfully
+      job-hunter-mcp:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:9119:9119"
+    volumes:
+      - hermes-data:/opt/data
+      - ./workspace:/workspace
+    networks:
+      - agent-internal
+
+networks:
+  agent-internal:
+    driver: bridge
+
+volumes:
+  hermes-data:
