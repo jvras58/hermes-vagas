@@ -156,4 +156,4 @@ docker compose run --rm job-hunter-mcp \
 - Credenciais ficam fora do repositório.
 - O currículo futuro poderá reorganizar apenas fatos existentes.
 
-Consulte [spec.md](spec.md) para a arquitetura completa e o cronograma.
+Consulte [spec.md](docs/spec.md) para a arquitetura completa e o cronograma.
