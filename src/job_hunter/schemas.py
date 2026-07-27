@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     AnyHttpUrl,
@@ -65,6 +66,12 @@ class RecomendacaoAnalise(StrEnum):
     APLICAR = "aplicar"
     REVISAR = "revisar"
     NAO_APLICAR = "nao_aplicar"
+
+
+class TipoAjusteCurriculo(StrEnum):
+    DESTACAR = "destacar"
+    REORDENAR = "reordenar"
+    REESCREVER = "reescrever"
 
 
 class FiltrosBusca(ModeloEstrito):
@@ -162,7 +169,7 @@ class LinkedInPosts(ModeloEstrito):
 
 class AnaliseSemanticaConfig(ModeloEstrito):
     ativa: bool = True
-    prompt_version: TextoObrigatorio = "semantic-v1"
+    prompt_version: TextoObrigatorio = "semantic-v2"
     provedor: TextoObrigatorio = "nvidia"
     modelo: TextoObrigatorio = "z-ai/glm-5.2"
     limiar_aplicar: int = Field(default=75, ge=1, le=100)
@@ -177,12 +184,40 @@ class AnaliseSemanticaConfig(ModeloEstrito):
         return self
 
 
+class ResumoDiarioConfig(ModeloEstrito):
+    ativo: bool = True
+    agendamento_cron: TextoObrigatorio = "0 8 * * *"
+    fuso_horario: TextoObrigatorio = "America/Recife"
+    maximo_analises_por_execucao: int = Field(default=20, ge=1, le=100)
+
+    @field_validator("agendamento_cron")
+    @classmethod
+    def validar_cron(cls, valor: str) -> str:
+        if len(valor.split()) != 5:
+            raise ValueError(
+                "'agendamento_cron' deve usar cinco campos no formato cron"
+            )
+        return valor
+
+    @field_validator("fuso_horario")
+    @classmethod
+    def validar_fuso_horario(cls, valor: str) -> str:
+        try:
+            ZoneInfo(valor)
+        except ZoneInfoNotFoundError as erro:
+            raise ValueError(
+                "'fuso_horario' deve ser um identificador IANA válido"
+            ) from erro
+        return valor
+
+
 class ConfiguracaoBusca(ModeloEstrito):
     filtros_busca: FiltrosBusca
     plataformas_ativas: PlataformasAtivas
     automacao: Automacao
     linkedin_posts: LinkedInPosts | None = None
     analise_semantica: AnaliseSemanticaConfig | None = None
+    resumo_diario: ResumoDiarioConfig | None = None
 
 
 class Vaga(ModeloEstrito):
@@ -256,6 +291,42 @@ class RequisitoAnaliseSemantica(ModeloEstrito):
         return self
 
 
+class AjusteCurriculo(ModeloEstrito):
+    tipo: TipoAjusteCurriculo
+    secao_alvo: TextoObrigatorio
+    fatos_curriculo: list[TextoObrigatorio] = Field(min_length=1, max_length=20)
+    instrucao: Annotated[str, Field(min_length=1, max_length=1000)]
+    texto_sugerido: (
+        Annotated[str, Field(min_length=1, max_length=2000)] | None
+    ) = None
+    justificativa: Annotated[str, Field(min_length=1, max_length=1000)]
+
+    @field_validator("fatos_curriculo")
+    @classmethod
+    def impedir_fatos_repetidos(cls, fatos: list[str]) -> list[str]:
+        if len(fatos) != len(set(fatos)):
+            raise ValueError("o ajuste contém fatos do currículo repetidos")
+        return fatos
+
+    @model_validator(mode="after")
+    def validar_texto_sugerido(self) -> AjusteCurriculo:
+        if (
+            self.tipo == TipoAjusteCurriculo.REESCREVER
+            and self.texto_sugerido is None
+        ):
+            raise ValueError(
+                "ajustes do tipo 'reescrever' exigem 'texto_sugerido'"
+            )
+        if (
+            self.tipo != TipoAjusteCurriculo.REESCREVER
+            and self.texto_sugerido is not None
+        ):
+            raise ValueError(
+                "'texto_sugerido' só é permitido no tipo 'reescrever'"
+            )
+        return self
+
+
 class AnaliseSemanticaEntrada(ModeloEstrito):
     prompt_version: TextoObrigatorio
     curriculo_sha256: HashSha256
@@ -267,6 +338,10 @@ class AnaliseSemanticaEntrada(ModeloEstrito):
     palavras_chave_ats: list[TextoObrigatorio] = Field(
         default_factory=list,
         max_length=30,
+    )
+    ajustes_curriculo: list[AjusteCurriculo] = Field(
+        default_factory=list,
+        max_length=20,
     )
 
     @field_validator("requisitos")

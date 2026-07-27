@@ -264,6 +264,64 @@ class RepositorioVagas:
             for registro in registros
         ]
 
+    def listar_analises_por_periodo(
+        self,
+        inicio: datetime,
+        fim: datetime,
+        limite: int = 100,
+    ) -> list[tuple[Vaga, AnaliseSemantica]]:
+        if (
+            inicio.tzinfo is None
+            or inicio.utcoffset() is None
+            or fim.tzinfo is None
+            or fim.utcoffset() is None
+        ):
+            raise ValueError("o período deve conter timezone")
+        if fim <= inicio:
+            raise ValueError("o fim do período deve ser posterior ao início")
+
+        limite_seguro = min(max(limite, 1), 100)
+        with self._conectar() as conexao:
+            registros = conexao.execute(
+                """
+                WITH analises_ordenadas AS (
+                    SELECT a.plataforma,
+                           a.id_externo,
+                           a.analise_json,
+                           v.payload_json,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY a.plataforma, a.id_externo
+                               ORDER BY julianday(a.analisada_em) DESC
+                           ) AS ordem
+                      FROM analises_semanticas AS a
+                      JOIN vagas AS v
+                        ON v.plataforma = a.plataforma
+                       AND v.id_externo = a.id_externo
+                     WHERE julianday(a.analisada_em) >= julianday(?)
+                       AND julianday(a.analisada_em) < julianday(?)
+                )
+                SELECT payload_json, analise_json
+                  FROM analises_ordenadas
+                 WHERE ordem = 1
+                 ORDER BY julianday(
+                     json_extract(analise_json, '$.analisada_em')
+                 ) DESC
+                 LIMIT ?
+                """,
+                (
+                    inicio.isoformat(),
+                    fim.isoformat(),
+                    limite_seguro,
+                ),
+            ).fetchall()
+        return [
+            (
+                Vaga.model_validate_json(registro[0]),
+                AnaliseSemantica.model_validate_json(registro[1]),
+            )
+            for registro in registros
+        ]
+
     def _conectar(self) -> sqlite3.Connection:
         conexao = sqlite3.connect(self.caminho_banco)
         conexao.execute("PRAGMA foreign_keys = ON")

@@ -79,6 +79,40 @@ class TestConfiguracao(unittest.TestCase):
             with self.assertRaises(ErroConfiguracao):
                 carregar_configuracao(caminho)
 
+    def test_rejeita_fuso_horario_invalido_no_resumo_diario(self) -> None:
+        origem = (
+            Path(__file__).parents[1]
+            / "tests"
+            / "fixtures"
+            / "config_busca_teste.json"
+        )
+        dados = json.loads(origem.read_text(encoding="utf-8"))
+        dados["resumo_diario"]["fuso_horario"] = "Brasil/Recife"
+
+        with tempfile.TemporaryDirectory() as temporario:
+            caminho = Path(temporario) / "config.json"
+            caminho.write_text(json.dumps(dados), encoding="utf-8")
+
+            with self.assertRaises(ErroConfiguracao):
+                carregar_configuracao(caminho)
+
+    def test_rejeita_cron_com_numero_incorreto_de_campos(self) -> None:
+        origem = (
+            Path(__file__).parents[1]
+            / "tests"
+            / "fixtures"
+            / "config_busca_teste.json"
+        )
+        dados = json.loads(origem.read_text(encoding="utf-8"))
+        dados["resumo_diario"]["agendamento_cron"] = "todo dia às oito"
+
+        with tempfile.TemporaryDirectory() as temporario:
+            caminho = Path(temporario) / "config.json"
+            caminho.write_text(json.dumps(dados), encoding="utf-8")
+
+            with self.assertRaises(ErroConfiguracao):
+                carregar_configuracao(caminho)
+
 
 if __name__ == "__main__":
     unittest.main()

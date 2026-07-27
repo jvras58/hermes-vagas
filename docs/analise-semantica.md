@@ -41,7 +41,7 @@ A seção editável fica em `workspace/inputs/config_busca.json`:
 ```json
 "analise_semantica": {
   "ativa": true,
-  "prompt_version": "semantic-v1",
+  "prompt_version": "semantic-v2",
   "provedor": "nvidia",
   "modelo": "z-ai/glm-5.2",
   "limiar_aplicar": 75,
@@ -58,6 +58,10 @@ A seção editável fica em `workspace/inputs/config_busca.json`:
 Mudar o currículo ou `prompt_version` cria uma nova identidade de análise. As
 vagas voltam a aparecer como pendentes, e os resultados anteriores continuam
 no banco para auditoria.
+
+A inclusão de sugestões factuais elevou a configuração padrão para
+`semantic-v2`. Na primeira execução após esta atualização, vagas analisadas com
+`semantic-v1` podem reaparecer uma vez na fila.
 
 ## 3. Executar
 
@@ -80,8 +84,9 @@ O fluxo MCP usado pelo Hermes é:
 1. `list_pending_semantic_reviews` lista a fila;
 2. `get_semantic_analysis_context` entrega uma vaga e os fatos numerados;
 3. o Hermes extrai e classifica os requisitos;
-4. `save_semantic_analysis` valida evidências, calcula score e salva;
-5. `list_semantic_results` confirma os resultados persistidos.
+4. o Hermes propõe ajustes usando somente os mesmos fatos `cv-*`;
+5. `save_semantic_analysis` valida evidências e ajustes, calcula score e salva;
+6. `list_semantic_results` confirma os resultados persistidos.
 
 Essas ferramentas usam produção por padrão (`dry_run=false`). Para analisar uma
 varredura de diagnóstico, peça explicitamente `dry_run=true` em todas as
@@ -105,6 +110,20 @@ parciais precisam citar ao menos um ID `cv-*` existente. Requisitos ausentes
 não podem citar evidências. O Hermes não envia score nem recomendação: ambos
 são calculados pelo serviço para impedir manipulação do resultado.
 
+### Sugestões de currículo
+
+Cada item de `ajustes_curriculo` precisa indicar:
+
+- `tipo`: `destacar`, `reordenar` ou `reescrever`;
+- `secao_alvo`: seção que a pessoa deve revisar;
+- `fatos_curriculo`: um ou mais IDs `cv-*` existentes;
+- `instrucao` e `justificativa`;
+- `texto_sugerido`, obrigatório somente para `reescrever`.
+
+IDs inexistentes são rejeitados. A sugestão é salva separadamente e não altera
+`curriculo_base.md`. Uma reescrita deve preservar o sentido dos fatos citados;
+ela não autoriza incluir tecnologia, resultado ou experiência nova.
+
 ## 5. Saídas e persistência
 
 Para cada vaga analisada:
@@ -112,12 +131,14 @@ Para cada vaga analisada:
 ```text
 workspace/outputs/producao/AAAA-MM-DD/empresa/cargo-id/
 ├── Analise_Semantica.json
-└── Relatorio_Match.txt
+├── Relatorio_Match.txt
+└── Sugestoes_Curriculo.md
 ```
 
 O JSON contém o contrato completo da análise. O relatório combina a triagem
 determinística com score, recomendação, requisitos, justificativas e o texto
-dos fatos citados.
+dos fatos citados. `Sugestoes_Curriculo.md` apresenta os ajustes e os fatos
+originais lado a lado para revisão humana.
 
 O SQLite usa como identidade:
 
@@ -133,8 +154,8 @@ Salvar novamente a mesma identidade atualiza o resultado sem criar duplicata.
 - somente fatos presentes no currículo podem ser citados;
 - IDs desconhecidos são rejeitados;
 - mudança do currículo invalida um contexto já aberto;
-- a etapa não altera o currículo, não cria PDF, não envia mensagem e não inicia
-  candidatura;
+- a etapa não altera o currículo, não cria PDF e não inicia candidatura;
+- a entrega ao Telegram ocorre somente no fluxo de relatório diário do Hermes;
 - o currículo real, bancos e outputs permanecem fora do Git.
 
 ## 7. Solução de problemas

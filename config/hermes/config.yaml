@@ -8,8 +8,14 @@ model:
   default: z-ai/glm-5.2
   api_mode: chat_completions
 
+timezone: "America/Recife"
+
 agent:
   reasoning_effort: medium
+
+cron:
+  wrap_response: false
+  mirror_delivery: true
 
 terminal:
   backend: local
@@ -31,6 +37,8 @@ mcp_servers:
         - get_semantic_analysis_context
         - save_semantic_analysis
         - list_semantic_results
+        - get_daily_digest_plan
+        - build_daily_digest
       resources: false
       prompts: false
 

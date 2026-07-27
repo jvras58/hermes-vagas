@@ -14,17 +14,20 @@ O fluxo disponível:
 5. gera `Relatorio_Match.txt` para cada post qualificado;
 6. permite ao Hermes comparar requisitos com fatos numerados do currículo;
 7. valida evidências, calcula o score e persiste a análise semântica;
-8. permite consultar os resultados pela CLI ou pelo Hermes.
+8. propõe ajustes rastreáveis sem editar o currículo-base;
+9. permite conversar pelo Telegram e entregar um relatório diário agendado.
 
-Esta etapa não acessa a aba formal de vagas do LinkedIn, não envia mensagens,
-não gera currículo PDF e não realiza candidatura. O currículo real permanece
-local e fora do Git.
+Esta etapa não acessa a aba formal de vagas do LinkedIn, não envia mensagens a
+recrutadores, não gera currículo PDF e não realiza candidatura. A entrega pelo
+Telegram é somente a resposta do bot ao usuário autorizado. O currículo real
+permanece local e fora do Git.
 
 ## 2. Requisitos
 
 - Docker Engine com Docker Compose v2;
 - conta e token da Apify;
 - chave da NVIDIA Build/NIM;
+- bot do Telegram, para chat e entrega agendada;
 - Git para atualizar o projeto.
 
 O Actor utilizado é
@@ -57,6 +60,11 @@ APIFY_TOKEN=apify_api_seu-token
 APIFY_LINKEDIN_POSTS_ACTOR=harvestapi/linkedin-post-search
 APIFY_MAX_TOTAL_CHARGE_USD=0.50
 APIFY_TIMEOUT_SECONDS=240
+
+TELEGRAM_BOT_TOKEN=token-do-botfather
+TELEGRAM_ALLOWED_USERS=123456789
+TELEGRAM_HOME_CHANNEL=123456789
+TELEGRAM_HOME_CHANNEL_NAME=Jonathas
 ```
 
 | Variável | Finalidade |
@@ -66,6 +74,10 @@ APIFY_TIMEOUT_SECONDS=240
 | `APIFY_LINKEDIN_POSTS_ACTOR` | Define o Actor permitido |
 | `APIFY_MAX_TOTAL_CHARGE_USD` | Limita o custo máximo de cada execução |
 | `APIFY_TIMEOUT_SECONDS` | Limita a espera pela resposta da Apify |
+| `TELEGRAM_BOT_TOKEN` | Ativa o bot no gateway Hermes |
+| `TELEGRAM_ALLOWED_USERS` | Allowlist numérica de remetentes |
+| `TELEGRAM_HOME_CHANNEL` | Destino das respostas do cron |
+| `TELEGRAM_HOME_CHANNEL_NAME` | Nome legível do destino |
 
 Nunca versione o `.env`.
 
@@ -273,7 +285,7 @@ Exemplo de resumo:
   "descartadas": 16,
   "duplicadas": 0,
   "relatorios_gerados": [
-    "/app/workspace/outputs/producao/..."
+    "/workspace/outputs/producao/..."
   ]
 }
 ```
@@ -337,7 +349,7 @@ obtenha o contexto, use somente IDs cv-* como evidência, salve a análise e
 resuma o resultado persistido.
 ```
 
-O Hermes usa quatro ferramentas MCP:
+O Hermes usa quatro ferramentas no fluxo semântico e duas no fluxo diário:
 
 | Ferramenta | Função |
 | --- | --- |
@@ -345,6 +357,8 @@ O Hermes usa quatro ferramentas MCP:
 | `get_semantic_analysis_context` | Entrega vaga e fatos numerados do currículo |
 | `save_semantic_analysis` | Valida evidências, calcula score e grava o resultado |
 | `list_semantic_results` | Consulta análises persistidas |
+| `get_daily_digest_plan` | Lê cron, fuso, limite e prompt da rotina |
+| `build_daily_digest` | Consolida as análises e prepara o anexo |
 
 O modelo NVIDIA interpreta a vaga. O código Python não faz uma segunda chamada
 ao LLM: ele valida IDs `cv-*`, aplica o cálculo determinístico e grava:
@@ -352,7 +366,8 @@ ao LLM: ele valida IDs `cv-*`, aplica o cálculo determinístico e grava:
 ```text
 workspace/outputs/producao/AAAA-MM-DD/empresa/cargo-id/
 ├── Analise_Semantica.json
-└── Relatorio_Match.txt
+├── Relatorio_Match.txt
+└── Sugestoes_Curriculo.md
 ```
 
 Se o currículo for alterado, seu hash muda e as vagas ficam pendentes para uma
@@ -360,7 +375,34 @@ nova análise. Consulte o
 [guia específico de análise semântica](analise-semantica.md) para o contrato e
 o cálculo do score.
 
-## 8. Quando usar `dry-run`
+## 8. Telegram e rotina diária
+
+Depois de criar o bot, configurar a allowlist numérica e recriar o Hermes, o
+mesmo agente fica disponível no dashboard e no Telegram.
+
+Para uma execução imediata:
+
+```text
+Execute uma rodada de produção agora: busque posts do LinkedIn uma vez,
+analise semanticamente até o limite configurado e gere o relatório diário.
+Inclua o arquivo retornado por build_daily_digest na resposta.
+```
+
+A seção `resumo_diario` de `config_busca.json` controla cron, fuso e número
+máximo de análises. Para criar a rotina, peça ao Hermes que use
+`get_daily_digest_plan`; ele mostra o uso previsto da Apify/NVIDIA e solicita
+confirmação antes de criar o cron.
+
+O relatório consolidado fica em:
+
+```text
+workspace/outputs/producao/AAAA-MM-DD/Relatorio_Diario.md
+```
+
+Consulte [Telegram e agendamento diário](telegram-e-agendamento.md) para criar
+o bot, obter o ID, testar anexos e gerenciar o cron.
+
+## 9. Quando usar `dry-run`
 
 O modo `dry-run` serve apenas para diagnóstico e mantém banco e outputs
 separados:
@@ -372,7 +414,7 @@ docker compose run --rm job-hunter-mcp python -m job_hunter.main scan --source l
 Ele ainda executa o Actor e pode consumir créditos da Apify. Para a rotina real,
 use `--commit`.
 
-## 9. Alteração de filtros e deduplicação
+## 10. Alteração de filtros e deduplicação
 
 Filtros novos afetam imediatamente os próximos posts descobertos. Posts já
 registrados em `vagas-producao.db`, inclusive os descartados, não são
@@ -390,7 +432,7 @@ docker compose up -d job-hunter-mcp
 Depois execute novamente com `--commit`. Remova o backup somente quando tiver
 certeza de que ele não será mais necessário.
 
-## 10. Limites e custos
+## 11. Limites e custos
 
 Na configuração inicial:
 
@@ -403,7 +445,7 @@ Na configuração inicial:
 O limite de custo é uma proteção, não uma previsão de cobrança. Confira preços e
 execuções diretamente no painel da Apify.
 
-## 11. Solução de problemas
+## 12. Solução de problemas
 
 ### `APIFY_TOKEN não foi definido`
 
@@ -461,11 +503,13 @@ HERMES_DASHBOARD_READY port=9119
 docker compose logs -f job-hunter-mcp
 ```
 
-## 12. Segurança
+## 13. Segurança
 
 - mantenha tokens apenas no `.env`;
 - mantenha `curriculo_base.md` fora do Git;
 - não envie cookies ou credenciais do LinkedIn;
 - revise os termos aplicáveis antes da coleta;
 - não aumente limites sem avaliar o custo;
+- permita no Telegram somente IDs numéricos conhecidos;
+- confirme o plano antes de ativar uma busca recorrente paga;
 - mantenha candidatura e contato sob revisão humana.

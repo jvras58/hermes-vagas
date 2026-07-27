@@ -113,6 +113,24 @@ class TestAnaliseSemantica(unittest.TestCase):
                     },
                 ],
                 "palavras_chave_ats": ["Python", "FastAPI", "Kubernetes"],
+                "ajustes_curriculo": [
+                    {
+                        "tipo": "reescrever",
+                        "secao_alvo": "Resumo profissional",
+                        "fatos_curriculo": [primeiro_id, segundo_id],
+                        "instrucao": (
+                            "Destacar a experiência real com APIs em Python."
+                        ),
+                        "texto_sugerido": (
+                            "Desenvolvedor de software com experiência em "
+                            "aplicações web e APIs usando Python e FastAPI."
+                        ),
+                        "justificativa": (
+                            "A vaga exige Python e FastAPI, ambos registrados "
+                            "nos fatos citados."
+                        ),
+                    }
+                ],
             }
         )
 
@@ -169,6 +187,13 @@ class TestAnaliseSemantica(unittest.TestCase):
         self.assertIn("ANÁLISE SEMÂNTICA HERMES", relatorio)
         self.assertIn("Score: 60%", relatorio)
         self.assertIn("cv-001", relatorio)
+        sugestoes = next(
+            caminho for caminho in artefatos
+            if caminho.name == "Sugestoes_Curriculo.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("revisão humana", sugestoes)
+        self.assertIn("cv-001", sugestoes)
+        self.assertIn("Python e FastAPI", sugestoes)
 
     def test_rejeita_evidencia_inexistente(self) -> None:
         contexto = self._contexto()
@@ -184,6 +209,29 @@ class TestAnaliseSemantica(unittest.TestCase):
                 "semantic-001",
                 entrada,
             )
+
+    def test_rejeita_fato_inexistente_em_ajuste(self) -> None:
+        contexto = self._contexto()
+        entrada = self._entrada(contexto)
+        entrada.ajustes_curriculo[0].fatos_curriculo = ["cv-999"]
+
+        with self.assertRaisesRegex(
+            ErroAnaliseSemantica,
+            "fatos inexistentes no ajuste",
+        ):
+            self.servico.salvar(
+                Plataforma.LINKEDIN,
+                "semantic-001",
+                entrada,
+            )
+
+    def test_reescrita_exige_texto_sugerido(self) -> None:
+        contexto = self._contexto()
+        entrada = self._entrada(contexto).model_dump()
+        entrada["ajustes_curriculo"][0]["texto_sugerido"] = None
+
+        with self.assertRaisesRegex(ValueError, "texto_sugerido"):
+            AnaliseSemanticaEntrada.model_validate(entrada)
 
     def test_curriculo_alterado_torna_vaga_pendente_novamente(self) -> None:
         contexto = self._contexto()
