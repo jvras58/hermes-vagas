@@ -33,7 +33,7 @@ def scan_mock_vacancies(dry_run: bool = True) -> dict[str, Any]:
 
 
 @mcp.tool()
-def scan_linkedin_posts(dry_run: bool = True) -> dict[str, Any]:
+def scan_linkedin_posts(dry_run: bool = False) -> dict[str, Any]:
     """Busca posts públicos de contratação via Apify e executa a triagem.
 
     A operação exige APIFY_TOKEN e pode consumir créditos mesmo em dry-run.
