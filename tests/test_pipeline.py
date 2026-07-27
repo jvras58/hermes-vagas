@@ -19,7 +19,10 @@ class TestPipeline(unittest.TestCase):
             inputs.mkdir(parents=True)
             (inputs / "config_busca.json").write_text(
                 (
-                    raiz_projeto / "workspace" / "inputs" / "config_busca.json"
+                    raiz_projeto
+                    / "tests"
+                    / "fixtures"
+                    / "config_busca_teste.json"
                 ).read_text(encoding="utf-8"),
                 encoding="utf-8",
             )

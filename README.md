@@ -17,6 +17,27 @@ e Telegram ainda não fazem parte desta entrega.
 - Docker Engine com Docker Compose v2; ou
 - Python 3.12+ para executar o núcleo localmente.
 
+## Uso rápido em produção
+
+1. Copie `.env.example` para `.env` e configure `NVIDIA_API_KEY` e
+   `APIFY_TOKEN`.
+2. Ajuste área, tecnologias e consultas em
+   `workspace/inputs/config_busca.json`.
+3. Suba `hermes-init`, `job-hunter-mcp` e `hermes`.
+4. Execute a busca com `--commit`.
+5. Consulte os relatórios em `workspace/outputs/producao/`.
+
+```powershell
+docker compose up -d --build --force-recreate hermes-init job-hunter-mcp hermes
+docker compose run --rm job-hunter-mcp python -m job_hunter.main scan --source linkedin-posts --commit
+docker compose run --rm job-hunter-mcp python -m job_hunter.main list --environment producao --limit 20
+```
+
+Os filtros são relidos em cada execução, então mudanças em
+`config_busca.json` não exigem rebuild. Consulte o
+[guia completo de uso](docs/guia-de-uso.md) para configurar filtros, executar
+pelo Hermes, entender deduplicação e resolver problemas.
+
 ## Teste rápido sem Docker
 
 ```bash
@@ -216,29 +237,30 @@ docker compose up -d --build --force-recreate \
   hermes-init job-hunter-mcp hermes
 ```
 
-Para fazer a primeira varredura pela CLI:
+Para executar uma varredura persistente de produção pela CLI:
 
 ```bash
 docker compose run --rm job-hunter-mcp \
-  python -m job_hunter.main scan --source linkedin-posts --dry-run
+  python -m job_hunter.main scan --source linkedin-posts --commit
 ```
 
-O `dry-run` separa o banco e os relatórios locais, mas a consulta ainda executa
-o Actor e pode consumir créditos da Apify. Comentários e reações são
-desativados. O pipeline descarta localmente posts com mais de 48 horas, sem
-indício de contratação ou sem tecnologia compatível, e nunca contata o autor
-nem inicia candidatura.
+O pipeline salva o estado em `vagas-producao.db`, descarta localmente posts com
+mais de 48 horas, sem indício de contratação ou sem tecnologia compatível, e
+nunca contata o autor nem inicia candidatura.
 
 Como alternativa à CLI, faça a primeira varredura pelo painel do Hermes:
 
 ```text
-Execute scan_linkedin_posts em dry_run e resuma os posts qualificados.
+Execute scan_linkedin_posts com dry_run=false e resuma os posts qualificados.
 ```
 
-Os resultados ficam em `workspace/outputs/dry-run/` e podem ser consultados com
-`list_recent_vacancies`. Se você já executou a CLI, peça ao Hermes para usar
-`list_recent_vacancies` em vez de iniciar outra varredura; uma nova execução
-classificará os mesmos posts como duplicados.
+Os resultados ficam em `workspace/outputs/producao/` e podem ser consultados
+com `list_recent_vacancies` usando `dry_run=false`. Se você já executou a CLI,
+peça ao Hermes para listar os resultados em vez de iniciar outra varredura; uma
+nova execução classificará os mesmos posts como duplicados.
+
+O modo `dry-run` continua disponível apenas para diagnóstico. Ele usa banco e
+outputs separados, mas ainda chama o Actor e pode consumir créditos da Apify.
 
 ## Estrutura
 
@@ -270,4 +292,5 @@ classificará os mesmos posts como duplicados.
 - Credenciais ficam fora do repositório.
 - O currículo futuro poderá reorganizar apenas fatos existentes.
 
-Consulte [spec.md](docs/spec.md) para a arquitetura completa e o cronograma.
+Consulte o [guia de uso](docs/guia-de-uso.md) para operação e
+[spec.md](docs/spec.md) para arquitetura e cronograma.

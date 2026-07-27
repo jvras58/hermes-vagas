@@ -65,14 +65,19 @@ Todos os arquivos ficam em `workspace/inputs/`.
   "filtros_busca": {
     "palavras_chave": [
       "Desenvolvedor Python",
-      "Engenheiro de IA",
-      "Python Developer",
+      "Engenheiro de Software",
+      "Desenvolvedor Frontend",
+      "Desenvolvedor Backend",
+      "Desenvolvedor Full Stack",
+      "Desenvolvedor Front-end",
       "Python",
       "FastAPI",
       "Django",
-      "AI Engineer",
-      "LLM",
-      "LangChain"
+      "React",
+      "Next.js",
+      "NextJS",
+      "JavaScript",
+      "TypeScript"
     ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
@@ -93,7 +98,10 @@ Todos os arquivos ficam em `workspace/inputs/`.
     "ativo": true,
     "consultas": [
       "\"estamos contratando\" AND (Python OR FastAPI OR Django)",
-      "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")"
+      "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")",
+      "(vaga OR oportunidade) AND (React OR Next.js OR frontend)",
+      "(contratando OR oportunidade) AND (JavaScript OR TypeScript)",
+      "(vaga OR contratando) AND (remoto OR \"trabalho remoto\") AND frontend"
     ],
     "ordenar_por": "date",
     "maximo_por_consulta": 5,
@@ -101,8 +109,12 @@ Todos os arquivos ficam em `workspace/inputs/`.
       "vaga",
       "vagas",
       "oportunidade",
+      "oportunidades",
       "contratando",
-      "hiring"
+      "estamos contratando",
+      "processo seletivo",
+      "venha para o time",
+      "posição aberta"
     ]
   }
 }

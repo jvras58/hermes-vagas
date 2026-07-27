@@ -60,9 +60,9 @@ class TestFontePostsLinkedInApify(unittest.TestCase):
             (inputs / "config_busca.json").write_text(
                 (
                     self.raiz_projeto
-                    / "workspace"
-                    / "inputs"
-                    / "config_busca.json"
+                    / "tests"
+                    / "fixtures"
+                    / "config_busca_teste.json"
                 ).read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
@@ -105,7 +105,7 @@ class TestFontePostsLinkedInApify(unittest.TestCase):
         )
         self.assertFalse(executor.payload["scrapeComments"])
         self.assertFalse(executor.payload["scrapeReactions"])
-        self.assertEqual(executor.maximo_itens, 25)
+        self.assertEqual(executor.maximo_itens, 10)
 
     def test_cliente_usa_bearer_limites_e_actor_configurado(self) -> None:
         requisicao_recebida: httpx.Request | None = None
