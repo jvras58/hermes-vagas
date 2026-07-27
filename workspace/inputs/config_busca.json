@@ -1,16 +1,22 @@
 {
   "filtros_busca": {
-    "palavras_chave": [
-      "Desenvolvedor Python",
-      "Engenheiro de IA",
-      "Python Developer",
-      "Python",
-      "FastAPI",
-      "Django",
-      "AI Engineer",
-      "LLM",
-      "LangChain"
-    ],
+  "palavras_chave": [
+    "Desenvolvedor Python",
+    "Engenheiro de Software",
+    "Desenvolvedor Frontend",
+    "Desenvolvedor Backend",
+    "Desenvolvedor Full Stack",
+    "Desenvolvedor backend",
+    "Desenvolvedor Front-end",
+    "Python",
+    "FastAPI",
+    "Django",
+    "React",
+    "Next.js",
+    "NextJS",
+    "JavaScript",
+    "TypeScript"
+  ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
     "tempo_maximo_publicacao_horas": 48
@@ -31,9 +37,9 @@
     "consultas": [
       "\"estamos contratando\" AND (Python OR FastAPI OR Django)",
       "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")",
-      "(\"we're hiring\" OR \"join our team\") AND (Python OR \"AI Engineer\")",
-      "(contratando OR hiring) AND (LLM OR LangChain OR agentes)",
-      "(vaga OR hiring) AND (remoto OR remote) AND (Python OR IA)"
+      "(vaga OR oportunidade) AND (React OR Next.js OR frontend)",
+      "(contratando OR oportunidade) AND (JavaScript OR TypeScript)",
+      "(vaga OR contratando) AND (remoto OR \"trabalho remoto\") AND frontend"
     ],
     "ordenar_por": "date",
     "maximo_por_consulta": 5,
@@ -44,10 +50,9 @@
       "oportunidades",
       "contratando",
       "estamos contratando",
-      "hiring",
-      "we're hiring",
-      "join our team",
-      "open position"
+      "processo seletivo",
+      "venha para o time",
+      "posição aberta"
     ]
   }
 }
