@@ -10,4 +10,4 @@ workspace/state/*
 !workspace/state/.gitkeep
 workspace/outputs/*
 !workspace/outputs/.gitkeep
-
+workspace/inputs/curriculo_base.md

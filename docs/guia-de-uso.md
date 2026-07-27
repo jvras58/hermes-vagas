@@ -12,10 +12,13 @@ O fluxo disponível:
 3. exige termos técnicos e indícios de contratação;
 4. deduplica os resultados em SQLite;
 5. gera `Relatorio_Match.txt` para cada post qualificado;
-6. permite consultar os resultados pela CLI ou pelo Hermes.
+6. permite ao Hermes comparar requisitos com fatos numerados do currículo;
+7. valida evidências, calcula o score e persiste a análise semântica;
+8. permite consultar os resultados pela CLI ou pelo Hermes.
 
 Esta etapa não acessa a aba formal de vagas do LinkedIn, não envia mensagens,
-não gera currículo PDF e não realiza candidatura.
+não gera currículo PDF e não realiza candidatura. O currículo real permanece
+local e fora do Git.
 
 ## 2. Requisitos
 
@@ -66,7 +69,24 @@ APIFY_TIMEOUT_SECONDS=240
 
 Nunca versione o `.env`.
 
-### 3.2 Validar a NVIDIA
+### 3.2 Criar o currículo privado
+
+No PowerShell:
+
+```powershell
+Copy-Item workspace/inputs/curriculo_base.example.md workspace/inputs/curriculo_base.md
+```
+
+No Linux ou macOS:
+
+```bash
+cp workspace/inputs/curriculo_base.example.md workspace/inputs/curriculo_base.md
+```
+
+Substitua todos os placeholders por informações profissionais reais. O arquivo
+`curriculo_base.md` é ignorado pelo Git. Não use `git add -f` nele.
+
+### 3.3 Validar a NVIDIA
 
 No PowerShell:
 
@@ -80,7 +100,7 @@ Resultado esperado:
 NVIDIA OK
 ```
 
-### 3.3 Subir os serviços
+### 3.4 Subir os serviços
 
 ```powershell
 docker compose up -d --build --force-recreate hermes-init job-hunter-mcp hermes
@@ -97,7 +117,7 @@ Para acompanhar a inicialização:
 docker compose logs --tail=100 job-hunter-mcp hermes
 ```
 
-### 3.4 Configurar o acesso ao dashboard
+### 3.5 Configurar o acesso ao dashboard
 
 Na primeira inicialização, o Hermes pode recusar o dashboard externo até que a
 autenticação seja configurada. O container continua disponível para gerar o
@@ -307,7 +327,40 @@ workspace/
 O banco registra vagas qualificadas e descartadas. Isso impede que a mesma
 publicação gere relatórios repetidos.
 
-## 7. Quando usar `dry-run`
+## 7. Executar a análise semântica
+
+Depois de uma varredura com `--commit`, abra o painel do Hermes e envie:
+
+```text
+Analise semanticamente até 5 vagas pendentes em produção. Para cada vaga,
+obtenha o contexto, use somente IDs cv-* como evidência, salve a análise e
+resuma o resultado persistido.
+```
+
+O Hermes usa quatro ferramentas MCP:
+
+| Ferramenta | Função |
+| --- | --- |
+| `list_pending_semantic_reviews` | Lista vagas qualificadas ainda não analisadas |
+| `get_semantic_analysis_context` | Entrega vaga e fatos numerados do currículo |
+| `save_semantic_analysis` | Valida evidências, calcula score e grava o resultado |
+| `list_semantic_results` | Consulta análises persistidas |
+
+O modelo NVIDIA interpreta a vaga. O código Python não faz uma segunda chamada
+ao LLM: ele valida IDs `cv-*`, aplica o cálculo determinístico e grava:
+
+```text
+workspace/outputs/producao/AAAA-MM-DD/empresa/cargo-id/
+├── Analise_Semantica.json
+└── Relatorio_Match.txt
+```
+
+Se o currículo for alterado, seu hash muda e as vagas ficam pendentes para uma
+nova análise. Consulte o
+[guia específico de análise semântica](analise-semantica.md) para o contrato e
+o cálculo do score.
+
+## 8. Quando usar `dry-run`
 
 O modo `dry-run` serve apenas para diagnóstico e mantém banco e outputs
 separados:
@@ -319,7 +372,7 @@ docker compose run --rm job-hunter-mcp python -m job_hunter.main scan --source l
 Ele ainda executa o Actor e pode consumir créditos da Apify. Para a rotina real,
 use `--commit`.
 
-## 8. Alteração de filtros e deduplicação
+## 9. Alteração de filtros e deduplicação
 
 Filtros novos afetam imediatamente os próximos posts descobertos. Posts já
 registrados em `vagas-producao.db`, inclusive os descartados, não são
@@ -337,7 +390,7 @@ docker compose up -d job-hunter-mcp
 Depois execute novamente com `--commit`. Remova o backup somente quando tiver
 certeza de que ele não será mais necessário.
 
-## 9. Limites e custos
+## 10. Limites e custos
 
 Na configuração inicial:
 
@@ -350,7 +403,7 @@ Na configuração inicial:
 O limite de custo é uma proteção, não uma previsão de cobrança. Confira preços e
 execuções diretamente no painel da Apify.
 
-## 10. Solução de problemas
+## 11. Solução de problemas
 
 ### `APIFY_TOKEN não foi definido`
 
@@ -378,6 +431,16 @@ Force a cópia da configuração e recrie os serviços:
 docker compose up -d --force-recreate hermes-init job-hunter-mcp hermes
 ```
 
+### `currículo-base não encontrado`
+
+Crie a cópia privada descrita na seção 3.2. Se o arquivo existe, confira se o
+volume `workspace/` está montado no container MCP.
+
+### `substitua os placeholders`
+
+Edite `curriculo_base.md` e remova todos os textos de exemplo. A análise fecha
+com erro para impedir que um currículo fictício gere recomendações.
+
 ### Dashboard indisponível
 
 Confira:
@@ -398,9 +461,10 @@ HERMES_DASHBOARD_READY port=9119
 docker compose logs -f job-hunter-mcp
 ```
 
-## 11. Segurança
+## 12. Segurança
 
 - mantenha tokens apenas no `.env`;
+- mantenha `curriculo_base.md` fora do Git;
 - não envie cookies ou credenciais do LinkedIn;
 - revise os termos aplicáveis antes da coleta;
 - não aumente limites sem avaliar o custo;

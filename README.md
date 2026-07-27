@@ -4,13 +4,14 @@ Base executável para um agente de triagem de vagas integrado ao Hermes Agent
 por MCP. A versão atual implementa configuração validada, fonte simulada, busca
 de posts públicos de contratação no LinkedIn via Apify HarvestAPI, filtro
 temporal de 48 horas, filtros determinísticos, deduplicação em SQLite,
-relatórios locais e execução isolada em Docker.
+análise semântica rastreável pelo Hermes, relatórios locais e execução isolada
+em Docker.
 
 O provedor principal já está configurado como NVIDIA Build/NIM, usando o modelo
 `z-ai/glm-5.2`.
 
-A aba formal de vagas do LinkedIn, Gupy, análise semântica do currículo, PDF ATS
-e Telegram ainda não fazem parte desta entrega.
+A aba formal de vagas do LinkedIn, Gupy, PDF ATS e Telegram ainda não fazem
+parte desta entrega.
 
 ## Requisitos
 
@@ -21,16 +22,27 @@ e Telegram ainda não fazem parte desta entrega.
 
 1. Copie `.env.example` para `.env` e configure `NVIDIA_API_KEY` e
    `APIFY_TOKEN`.
-2. Ajuste área, tecnologias e consultas em
+2. Copie `workspace/inputs/curriculo_base.example.md` para
+   `workspace/inputs/curriculo_base.md` e substitua todos os exemplos por fatos
+   profissionais reais. O arquivo privado é ignorado pelo Git.
+3. Ajuste área, tecnologias e consultas em
    `workspace/inputs/config_busca.json`.
-3. Suba `hermes-init`, `job-hunter-mcp` e `hermes`.
-4. Execute a busca com `--commit`.
-5. Consulte os relatórios em `workspace/outputs/producao/`.
+4. Suba `hermes-init`, `job-hunter-mcp` e `hermes`.
+5. Execute a busca com `--commit`.
+6. Peça ao Hermes para analisar as vagas pendentes.
+7. Consulte os relatórios em `workspace/outputs/producao/`.
 
 ```powershell
 docker compose up -d --build --force-recreate hermes-init job-hunter-mcp hermes
 docker compose run --rm job-hunter-mcp python -m job_hunter.main scan --source linkedin-posts --commit
 docker compose run --rm job-hunter-mcp python -m job_hunter.main list --environment producao --limit 20
+```
+
+No painel do Hermes:
+
+```text
+Analise semanticamente até 5 vagas pendentes em produção. Use apenas fatos
+numerados do currículo como evidência e mostre score, recomendação e lacunas.
 ```
 
 Os filtros são relidos em cada execução, então mudanças em
@@ -262,6 +274,33 @@ nova execução classificará os mesmos posts como duplicados.
 O modo `dry-run` continua disponível apenas para diagnóstico. Ele usa banco e
 outputs separados, mas ainda chama o Actor e pode consumir créditos da Apify.
 
+### Analisar a compatibilidade pelo Hermes
+
+O currículo real não é versionado. Crie a cópia privada antes da primeira
+análise:
+
+```powershell
+Copy-Item workspace/inputs/curriculo_base.example.md workspace/inputs/curriculo_base.md
+```
+
+Preencha o arquivo com fatos reais e remova todos os placeholders. Depois da
+varredura em produção, peça ao Hermes:
+
+```text
+Analise semanticamente até 5 vagas pendentes em produção. Para cada vaga,
+obtenha o contexto, use somente IDs cv-* como evidência, salve a análise e
+resuma o resultado persistido.
+```
+
+O Hermes, usando o modelo NVIDIA configurado, interpreta os requisitos. O MCP
+valida as referências ao currículo, calcula o score e grava
+`Analise_Semantica.json` e a seção semântica de `Relatorio_Match.txt`. Alterar
+o currículo ou `analise_semantica.prompt_version` faz a vaga voltar à fila de
+análise sem apagar resultados anteriores.
+
+Consulte [análise semântica com o Hermes](docs/analise-semantica.md) para o
+contrato, cálculo do score e solução de problemas.
+
 ## Estrutura
 
 ```text
@@ -274,7 +313,8 @@ outputs separados, mas ainda chama o Actor e pode consumir créditos da Apify.
 │   ├── filtering.py           # Regras determinísticas
 │   ├── mcp_server.py          # Ferramentas expostas ao Hermes
 │   ├── pipeline.py            # Orquestração do fluxo
-│   ├── reporting.py           # Relatório inicial
+│   ├── reporting.py           # Relatórios de triagem e análise
+│   ├── semantic_analysis.py   # Contexto, evidências, score e persistência
 │   └── schemas.py             # Contratos validados
 ├── tests/
 └── workspace/
@@ -290,7 +330,9 @@ outputs separados, mas ainda chama o Actor e pode consumir créditos da Apify.
 - O modo `dry-run` usa estado e saída separados da execução persistente.
 - Descrições de vagas são tratadas como entrada não confiável.
 - Credenciais ficam fora do repositório.
-- O currículo futuro poderá reorganizar apenas fatos existentes.
+- `curriculo_base.md` fica fora do Git; somente o modelo `.example.md` é
+  versionado.
+- A análise cita fatos numerados e não pode salvar evidências inexistentes.
 
 Consulte o [guia de uso](docs/guia-de-uso.md) para operação e
 [spec.md](docs/spec.md) para arquitetura e cronograma.

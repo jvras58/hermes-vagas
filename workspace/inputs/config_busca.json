@@ -54,5 +54,13 @@
       "venha para o time",
       "posição aberta"
     ]
+  },
+  "analise_semantica": {
+    "ativa": true,
+    "prompt_version": "semantic-v1",
+    "provedor": "nvidia",
+    "modelo": "z-ai/glm-5.2",
+    "limiar_aplicar": 75,
+    "limiar_revisar": 50
   }
 }
