@@ -5,7 +5,10 @@ import json
 import os
 from pathlib import Path
 
-from job_hunter.application import executar_varredura_mock
+from job_hunter.application import (
+    executar_varredura_linkedin_posts,
+    executar_varredura_mock,
+)
 from job_hunter.persistence.repository import RepositorioVagas
 
 
@@ -22,7 +25,11 @@ def criar_parser() -> argparse.ArgumentParser:
     subcomandos = parser.add_subparsers(dest="comando", required=True)
 
     scan = subcomandos.add_parser("scan", help="Executa uma varredura de vagas.")
-    scan.add_argument("--source", choices=["mock"], default="mock")
+    scan.add_argument(
+        "--source",
+        choices=["mock", "linkedin-posts"],
+        default="mock",
+    )
     modo = scan.add_mutually_exclusive_group()
     modo.add_argument("--dry-run", dest="dry_run", action="store_true")
     modo.add_argument("--commit", dest="dry_run", action="store_false")
@@ -42,10 +49,16 @@ def main() -> None:
     argumentos = criar_parser().parse_args()
 
     if argumentos.comando == "scan":
-        resumo = executar_varredura_mock(
-            workspace=argumentos.workspace,
-            dry_run=argumentos.dry_run,
-        )
+        if argumentos.source == "linkedin-posts":
+            resumo = executar_varredura_linkedin_posts(
+                workspace=argumentos.workspace,
+                dry_run=argumentos.dry_run,
+            )
+        else:
+            resumo = executar_varredura_mock(
+                workspace=argumentos.workspace,
+                dry_run=argumentos.dry_run,
+            )
         print(resumo.model_dump_json(indent=2))
         return
 
@@ -66,4 +79,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

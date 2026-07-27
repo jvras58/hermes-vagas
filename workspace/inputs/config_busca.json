@@ -1,10 +1,22 @@
 {
   "filtros_busca": {
-    "palavras_chave": [
-      "Desenvolvedor Python",
-      "Engenheiro de IA",
-      "Python Developer"
-    ],
+  "palavras_chave": [
+    "Desenvolvedor Python",
+    "Engenheiro de Software",
+    "Desenvolvedor Frontend",
+    "Desenvolvedor Backend",
+    "Desenvolvedor Full Stack",
+    "Desenvolvedor backend",
+    "Desenvolvedor Front-end",
+    "Python",
+    "FastAPI",
+    "Django",
+    "React",
+    "Next.js",
+    "NextJS",
+    "JavaScript",
+    "TypeScript"
+  ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
     "tempo_maximo_publicacao_horas": 48
@@ -19,6 +31,28 @@
     "notificar_via_telegram": false,
     "tentar_auto_apply_simplificado": false,
     "dry_run": true
+  },
+  "linkedin_posts": {
+    "ativo": true,
+    "consultas": [
+      "\"estamos contratando\" AND (Python OR FastAPI OR Django)",
+      "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")",
+      "(vaga OR oportunidade) AND (React OR Next.js OR frontend)",
+      "(contratando OR oportunidade) AND (JavaScript OR TypeScript)",
+      "(vaga OR contratando) AND (remoto OR \"trabalho remoto\") AND frontend"
+    ],
+    "ordenar_por": "date",
+    "maximo_por_consulta": 5,
+    "sinais_contratacao": [
+      "vaga",
+      "vagas",
+      "oportunidade",
+      "oportunidades",
+      "contratando",
+      "estamos contratando",
+      "processo seletivo",
+      "venha para o time",
+      "posição aberta"
+    ]
   }
 }
-

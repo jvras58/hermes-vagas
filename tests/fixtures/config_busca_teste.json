@@ -1,0 +1,37 @@
+{
+  "filtros_busca": {
+    "palavras_chave": [
+      "Python Developer",
+      "Engenheiro de IA",
+      "Python"
+    ],
+    "localidade": "Brasil",
+    "modalidade": "Remoto",
+    "tempo_maximo_publicacao_horas": 48
+  },
+  "plataformas_ativas": {
+    "linkedin": true,
+    "gupy": true
+  },
+  "automacao": {
+    "navegacao_controlada": true,
+    "interromper_em_captcha": true,
+    "notificar_via_telegram": false,
+    "tentar_auto_apply_simplificado": false,
+    "dry_run": true
+  },
+  "linkedin_posts": {
+    "ativo": true,
+    "consultas": [
+      "\"contratando\" AND Python",
+      "(vaga OR oportunidade) AND \"Engenheiro de IA\""
+    ],
+    "ordenar_por": "date",
+    "maximo_por_consulta": 5,
+    "sinais_contratacao": [
+      "vaga",
+      "oportunidade",
+      "contratando"
+    ]
+  }
+}

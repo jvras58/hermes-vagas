@@ -19,16 +19,16 @@ mcp_servers:
   job_hunter:
     url: "http://job-hunter-mcp:8000/mcp"
     enabled: true
-    timeout: 120
+    timeout: 300
     connect_timeout: 30
     supports_parallel_tool_calls: false
     tools:
       include:
         - scan_mock_vacancies
+        - scan_linkedin_posts
         - list_recent_vacancies
       resources: false
       prompts: false
 
 security:
   redact_secrets: true
-

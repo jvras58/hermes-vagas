@@ -1,20 +1,42 @@
 # Hermes Job Hunter
 
 Base executável para um agente de triagem de vagas integrado ao Hermes Agent
-por MCP. A primeira versão implementa configuração validada, fonte simulada,
-filtro temporal de 48 horas, filtros determinísticos, deduplicação em SQLite,
+por MCP. A versão atual implementa configuração validada, fonte simulada, busca
+de posts públicos de contratação no LinkedIn via Apify HarvestAPI, filtro
+temporal de 48 horas, filtros determinísticos, deduplicação em SQLite,
 relatórios locais e execução isolada em Docker.
 
 O provedor principal já está configurado como NVIDIA Build/NIM, usando o modelo
 `z-ai/glm-5.2`.
 
-LinkedIn, Gupy, análise semântica do currículo, PDF ATS e Telegram ainda não
-fazem parte desta primeira entrega.
+A aba formal de vagas do LinkedIn, Gupy, análise semântica do currículo, PDF ATS
+e Telegram ainda não fazem parte desta entrega.
 
 ## Requisitos
 
 - Docker Engine com Docker Compose v2; ou
 - Python 3.12+ para executar o núcleo localmente.
+
+## Uso rápido em produção
+
+1. Copie `.env.example` para `.env` e configure `NVIDIA_API_KEY` e
+   `APIFY_TOKEN`.
+2. Ajuste área, tecnologias e consultas em
+   `workspace/inputs/config_busca.json`.
+3. Suba `hermes-init`, `job-hunter-mcp` e `hermes`.
+4. Execute a busca com `--commit`.
+5. Consulte os relatórios em `workspace/outputs/producao/`.
+
+```powershell
+docker compose up -d --build --force-recreate hermes-init job-hunter-mcp hermes
+docker compose run --rm job-hunter-mcp python -m job_hunter.main scan --source linkedin-posts --commit
+docker compose run --rm job-hunter-mcp python -m job_hunter.main list --environment producao --limit 20
+```
+
+Os filtros são relidos em cada execução, então mudanças em
+`config_busca.json` não exigem rebuild. Consulte o
+[guia completo de uso](docs/guia-de-uso.md) para configurar filtros, executar
+pelo Hermes, entender deduplicação e resolver problemas.
 
 ## Teste rápido sem Docker
 
@@ -70,8 +92,8 @@ nenhuma vaga. Ele apenas usa `vagas-producao.db` e `outputs/producao/`.
    O arquivo `config/hermes/config.yaml` já aponta para `provider: nvidia` e
    `z-ai/glm-5.2`. A chave nunca deve ser escrita nesse YAML.
 
-3. Opcionalmente, preencha `TELEGRAM_BOT_TOKEN` e
-   `TELEGRAM_ALLOWED_USERS`. Durante o desenvolvimento,
+3. Para habilitar a busca real de posts do LinkedIn, preencha `APIFY_TOKEN`.
+   `TELEGRAM_BOT_TOKEN` e `TELEGRAM_ALLOWED_USERS` continuam opcionais e
    `notificar_via_telegram` permanece `false`.
 
 4. Construa e faça a primeira inicialização dos containers:
@@ -181,13 +203,72 @@ docker compose run --rm job-hunter-mcp \
   python -m job_hunter.main scan --source mock --dry-run
 ```
 
+### Testar posts recentes do LinkedIn via Apify
+
+Esta integração pesquisa posts de pessoas e empresas, não a aba formal de vagas
+do LinkedIn. Ela usa o Actor
+[`harvestapi/linkedin-post-search`](https://apify.com/harvestapi/linkedin-post-search)
+e não precisa de cookie ou login do LinkedIn.
+
+O Actor é mantido por um terceiro e não é uma integração oficial do LinkedIn.
+Antes de uma execução real, revise os termos da plataforma, a política de
+privacidade aplicável e a página do Actor.
+
+Configure no `.env`:
+
+```dotenv
+APIFY_TOKEN=apify_api_seu-token
+APIFY_LINKEDIN_POSTS_ACTOR=harvestapi/linkedin-post-search
+APIFY_MAX_TOTAL_CHARGE_USD=0.50
+APIFY_TIMEOUT_SECONDS=240
+```
+
+As consultas booleanas ficam em
+`workspace/inputs/config_busca.json`, na seção `linkedin_posts`. A configuração
+inicial usa cinco consultas e no máximo cinco posts por consulta, limitando a
+resposta a 25 itens por execução. O código também envia um teto de cobrança de
+US$ 0,50 para a execução.
+
+Recrie os serviços para instalar o cliente e copiar a nova lista de ferramentas
+do Hermes:
+
+```bash
+docker compose up -d --build --force-recreate \
+  hermes-init job-hunter-mcp hermes
+```
+
+Para executar uma varredura persistente de produção pela CLI:
+
+```bash
+docker compose run --rm job-hunter-mcp \
+  python -m job_hunter.main scan --source linkedin-posts --commit
+```
+
+O pipeline salva o estado em `vagas-producao.db`, descarta localmente posts com
+mais de 48 horas, sem indício de contratação ou sem tecnologia compatível, e
+nunca contata o autor nem inicia candidatura.
+
+Como alternativa à CLI, faça a primeira varredura pelo painel do Hermes:
+
+```text
+Execute scan_linkedin_posts com dry_run=false e resuma os posts qualificados.
+```
+
+Os resultados ficam em `workspace/outputs/producao/` e podem ser consultados
+com `list_recent_vacancies` usando `dry_run=false`. Se você já executou a CLI,
+peça ao Hermes para listar os resultados em vez de iniciar outra varredura; uma
+nova execução classificará os mesmos posts como duplicados.
+
+O modo `dry-run` continua disponível apenas para diagnóstico. Ele usa banco e
+outputs separados, mas ainda chama o Actor e pode consumir créditos da Apify.
+
 ## Estrutura
 
 ```text
 .
 ├── config/hermes/             # Configuração e regras do Hermes
 ├── src/job_hunter/
-│   ├── discovery/             # Fontes de vagas
+│   ├── discovery/             # Mock e fonte Apify de posts do LinkedIn
 │   ├── persistence/           # SQLite e deduplicação
 │   ├── application.py         # Caso de uso reutilizado pela CLI e MCP
 │   ├── filtering.py           # Regras determinísticas
@@ -211,4 +292,5 @@ docker compose run --rm job-hunter-mcp \
 - Credenciais ficam fora do repositório.
 - O currículo futuro poderá reorganizar apenas fatos existentes.
 
-Consulte [spec.md](docs/spec.md) para a arquitetura completa e o cronograma.
+Consulte o [guia de uso](docs/guia-de-uso.md) para operação e
+[spec.md](docs/spec.md) para arquitetura e cronograma.

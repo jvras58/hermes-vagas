@@ -1,0 +1,47 @@
+[
+  {
+    "type": "post",
+    "id": "social-1001",
+    "linkedinUrl": "https://www.linkedin.com/posts/ana-recrutadora_python-hiring-activity-1001",
+    "content": "Estamos contratando Python Developer para a Nexus Tech. Vaga remota para todo o Brasil, com FastAPI e Docker.",
+    "author": {
+      "name": "Ana Recrutadora",
+      "linkedinUrl": "https://www.linkedin.com/in/ana-recrutadora",
+      "info": "Tech Recruiter at Nexus Tech",
+      "type": "profile"
+    },
+    "postedAt": {
+      "date": "2026-07-26T04:00:00Z"
+    }
+  },
+  {
+    "type": "post",
+    "id": "social-1002",
+    "linkedinUrl": "https://www.linkedin.com/posts/bruno-tech_python-vaga-activity-1002",
+    "content": "Oportunidade para Engenheiro de IA com Python e LLM, trabalho remoto no Brasil.",
+    "author": {
+      "name": "Bruno Tech",
+      "linkedinUrl": "https://www.linkedin.com/in/bruno-tech",
+      "info": "Engineering Manager at Aurora Labs",
+      "type": "profile"
+    },
+    "postedAt": {
+      "date": "2026-07-24T10:00:00Z"
+    }
+  },
+  {
+    "type": "post",
+    "id": "social-1003",
+    "linkedinUrl": "https://www.linkedin.com/posts/carla-dev_python-dicas-activity-1003",
+    "content": "Compartilhando algumas dicas de Python e FastAPI que aprendi esta semana.",
+    "author": {
+      "name": "Carla Dev",
+      "linkedinUrl": "https://www.linkedin.com/in/carla-dev",
+      "info": "Software Engineer",
+      "type": "profile"
+    },
+    "postedAt": {
+      "date": "2026-07-26T08:00:00Z"
+    }
+  }
+]

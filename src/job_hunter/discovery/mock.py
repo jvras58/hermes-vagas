@@ -15,7 +15,7 @@ class FonteVagasMock:
     def descobrir(self, agora: datetime) -> list[Vaga]:
         registros = json.loads(self.caminho.read_text(encoding="utf-8"))
         if not isinstance(registros, list):
-            raise ValueError("o arquivo de vagas mock deve conter uma lista JSON")
+            raise TypeError("o arquivo de vagas mock deve conter uma lista JSON")
         return [self._normalizar(registro, agora) for registro in registros]
 
     @staticmethod

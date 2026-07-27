@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     AnyHttpUrl,
@@ -12,7 +12,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
 
 TextoObrigatorio = Annotated[str, Field(min_length=1)]
 
@@ -30,6 +29,11 @@ class Plataforma(StrEnum):
     GUPY = "gupy"
 
 
+class OrigemVaga(StrEnum):
+    ANUNCIO = "anuncio"
+    POST_LINKEDIN = "post_linkedin"
+
+
 class StatusVaga(StrEnum):
     QUALIFICADA = "qualificada"
     DESCARTADA = "descartada"
@@ -42,6 +46,7 @@ class MotivoDescarte(StrEnum):
     PALAVRA_CHAVE_NAO_ENCONTRADA = "palavra_chave_nao_encontrada"
     LOCALIDADE_DIVERGENTE = "localidade_divergente"
     MODALIDADE_DIVERGENTE = "modalidade_divergente"
+    SEM_INDICIO_CONTRATACAO = "sem_indicio_contratacao"
 
 
 class FiltrosBusca(ModeloEstrito):
@@ -92,10 +97,56 @@ class Automacao(ModeloEstrito):
         return self
 
 
+class LinkedInPosts(ModeloEstrito):
+    ativo: bool = False
+    consultas: list[TextoObrigatorio] = Field(default_factory=list, max_length=20)
+    ordenar_por: Literal["date", "relevance"] = "date"
+    maximo_por_consulta: int = Field(default=5, ge=1, le=100)
+    sinais_contratacao: list[TextoObrigatorio] = Field(
+        default_factory=lambda: [
+            "vaga",
+            "vagas",
+            "oportunidade",
+            "oportunidades",
+            "contratando",
+            "hiring",
+            "join our team",
+            "open position",
+        ],
+        min_length=1,
+    )
+
+    @field_validator("consultas")
+    @classmethod
+    def validar_consultas(cls, consultas: list[str]) -> list[str]:
+        resultado: list[str] = []
+        conhecidas: set[str] = set()
+        for consulta in consultas:
+            if len(consulta) > 85:
+                raise ValueError(
+                    "cada consulta do LinkedIn deve ter no máximo 85 caracteres"
+                )
+            chave = consulta.casefold()
+            if chave not in conhecidas:
+                conhecidas.add(chave)
+                resultado.append(consulta)
+        return resultado
+
+    @model_validator(mode="after")
+    def exigir_consultas_quando_ativa(self) -> LinkedInPosts:
+        if self.ativo and not self.consultas:
+            raise ValueError(
+                "'linkedin_posts.consultas' deve ser preenchido quando a fonte "
+                "estiver ativa"
+            )
+        return self
+
+
 class ConfiguracaoBusca(ModeloEstrito):
     filtros_busca: FiltrosBusca
     plataformas_ativas: PlataformasAtivas
     automacao: Automacao
+    linkedin_posts: LinkedInPosts | None = None
 
 
 class Vaga(ModeloEstrito):
@@ -109,6 +160,9 @@ class Vaga(ModeloEstrito):
     url: AnyHttpUrl
     publicada_em: datetime
     coletada_em: datetime
+    origem: OrigemVaga = OrigemVaga.ANUNCIO
+    autor_nome: str | None = None
+    autor_url: AnyHttpUrl | None = None
 
     @field_validator("publicada_em", "coletada_em")
     @classmethod
@@ -129,4 +183,3 @@ class ResumoExecucao(ModeloEstrito):
     descartadas: int = 0
     duplicadas: int = 0
     relatorios_gerados: list[str] = Field(default_factory=list)
-
