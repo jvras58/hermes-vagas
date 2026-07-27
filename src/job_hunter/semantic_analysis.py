@@ -23,7 +23,6 @@ from job_hunter.schemas import (
 )
 from job_hunter.settings import carregar_configuracao
 
-
 MARCADORES_CURRICULO_MODELO = (
     "[seu nome completo]",
     "seu-email@",
