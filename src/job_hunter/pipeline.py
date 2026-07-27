@@ -10,7 +10,6 @@ from job_hunter.persistence.repository import RepositorioVagas
 from job_hunter.reporting import criar_relatorio_triagem
 from job_hunter.schemas import ConfiguracaoBusca, ResumoExecucao, StatusVaga, Vaga
 
-
 TipoAvaliador = Callable[
     [Vaga, ConfiguracaoBusca, datetime],
     ResultadoFiltro,

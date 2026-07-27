@@ -12,7 +12,6 @@ from job_hunter.application import (
 )
 from job_hunter.persistence.repository import RepositorioVagas
 
-
 HOST = os.getenv("MCP_HOST", "127.0.0.1")
 PORT = int(os.getenv("MCP_PORT", "8000"))
 WORKSPACE = Path(os.getenv("JOB_HUNTER_WORKSPACE", "workspace"))

@@ -13,7 +13,6 @@ from pydantic import (
     model_validator,
 )
 
-
 TextoObrigatorio = Annotated[str, Field(min_length=1)]
 
 
