@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from job_hunter.schemas import MotivoDescarte, StatusVaga, Vaga
+from job_hunter.schemas import (
+    AnaliseSemantica,
+    MotivoDescarte,
+    Plataforma,
+    StatusVaga,
+    Vaga,
+)
 
 
 class RepositorioVagas:
@@ -29,6 +35,30 @@ class RepositorioVagas:
                     ultima_visualizacao_em TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
                     PRIMARY KEY (plataforma, id_externo)
+                )
+                """
+            )
+            conexao.execute(
+                """
+                CREATE TABLE IF NOT EXISTS analises_semanticas (
+                    plataforma TEXT NOT NULL,
+                    id_externo TEXT NOT NULL,
+                    prompt_version TEXT NOT NULL,
+                    curriculo_sha256 TEXT NOT NULL,
+                    provedor TEXT NOT NULL,
+                    modelo TEXT NOT NULL,
+                    score INTEGER NOT NULL,
+                    recomendacao TEXT NOT NULL,
+                    analisada_em TEXT NOT NULL,
+                    analise_json TEXT NOT NULL,
+                    PRIMARY KEY (
+                        plataforma,
+                        id_externo,
+                        prompt_version,
+                        curriculo_sha256
+                    ),
+                    FOREIGN KEY (plataforma, id_externo)
+                        REFERENCES vagas (plataforma, id_externo)
                 )
                 """
             )
@@ -112,6 +142,129 @@ class RepositorioVagas:
             ).fetchall()
         return [dict(registro) for registro in registros]
 
-    def _conectar(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.caminho_banco)
+    def obter_vaga_qualificada(
+        self,
+        plataforma: Plataforma,
+        id_externo: str,
+    ) -> Vaga | None:
+        with self._conectar() as conexao:
+            registro = conexao.execute(
+                """
+                SELECT payload_json
+                  FROM vagas
+                 WHERE plataforma = ?
+                   AND id_externo = ?
+                   AND status = ?
+                 LIMIT 1
+                """,
+                (
+                    plataforma.value,
+                    id_externo,
+                    StatusVaga.QUALIFICADA.value,
+                ),
+            ).fetchone()
+        if registro is None:
+            return None
+        return Vaga.model_validate_json(registro[0])
 
+    def listar_pendentes_analise(
+        self,
+        prompt_version: str,
+        curriculo_sha256: str,
+        limite: int = 10,
+    ) -> list[Vaga]:
+        limite_seguro = min(max(limite, 1), 100)
+        with self._conectar() as conexao:
+            registros = conexao.execute(
+                """
+                SELECT v.payload_json
+                  FROM vagas AS v
+                 WHERE v.status = ?
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM analises_semanticas AS a
+                        WHERE a.plataforma = v.plataforma
+                          AND a.id_externo = v.id_externo
+                          AND a.prompt_version = ?
+                          AND a.curriculo_sha256 = ?
+                   )
+                 ORDER BY v.publicada_em DESC
+                 LIMIT ?
+                """,
+                (
+                    StatusVaga.QUALIFICADA.value,
+                    prompt_version,
+                    curriculo_sha256,
+                    limite_seguro,
+                ),
+            ).fetchall()
+        return [Vaga.model_validate_json(registro[0]) for registro in registros]
+
+    def registrar_analise(self, analise: AnaliseSemantica) -> None:
+        with self._conectar() as conexao:
+            conexao.execute(
+                """
+                INSERT INTO analises_semanticas (
+                    plataforma,
+                    id_externo,
+                    prompt_version,
+                    curriculo_sha256,
+                    provedor,
+                    modelo,
+                    score,
+                    recomendacao,
+                    analisada_em,
+                    analise_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(
+                    plataforma,
+                    id_externo,
+                    prompt_version,
+                    curriculo_sha256
+                ) DO UPDATE SET
+                    provedor = excluded.provedor,
+                    modelo = excluded.modelo,
+                    score = excluded.score,
+                    recomendacao = excluded.recomendacao,
+                    analisada_em = excluded.analisada_em,
+                    analise_json = excluded.analise_json
+                """,
+                (
+                    analise.plataforma.value,
+                    analise.id_externo,
+                    analise.prompt_version,
+                    analise.curriculo_sha256,
+                    analise.provedor,
+                    analise.modelo,
+                    analise.score,
+                    analise.recomendacao.value,
+                    analise.analisada_em.isoformat(),
+                    analise.model_dump_json(),
+                ),
+            )
+
+    def listar_analises_recentes(
+        self,
+        limite: int = 20,
+    ) -> list[AnaliseSemantica]:
+        limite_seguro = min(max(limite, 1), 100)
+        with self._conectar() as conexao:
+            registros = conexao.execute(
+                """
+                SELECT analise_json
+                  FROM analises_semanticas
+                 ORDER BY analisada_em DESC
+                 LIMIT ?
+                """,
+                (limite_seguro,),
+            ).fetchall()
+        return [
+            AnaliseSemantica.model_validate_json(registro[0])
+            for registro in registros
+        ]
+
+    def _conectar(self) -> sqlite3.Connection:
+        conexao = sqlite3.connect(self.caminho_banco)
+        conexao.execute("PRAGMA foreign_keys = ON")
+        return conexao

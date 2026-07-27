@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import UTC, datetime, timedelta, tzinfo
+from datetime import UTC, datetime, timedelta
 
 from job_hunter.filtering import avaliar_vaga
 from job_hunter.schemas import (
@@ -92,7 +92,7 @@ class TestFiltro(unittest.TestCase):
 
     def test_rejeita_data_sem_timezone(self) -> None:
         with self.assertRaises(ValueError):
-            criar_vaga(publicada_em=tzinfo(2026, 7, 26, 10))
+            criar_vaga(publicada_em=datetime(2026, 7, 26, 10))
 
 
 if __name__ == "__main__":

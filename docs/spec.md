@@ -116,6 +116,14 @@ Todos os arquivos ficam em `workspace/inputs/`.
       "venha para o time",
       "posição aberta"
     ]
+  },
+  "analise_semantica": {
+    "ativa": true,
+    "prompt_version": "semantic-v1",
+    "provedor": "nvidia",
+    "modelo": "z-ai/glm-5.2",
+    "limiar_aplicar": 75,
+    "limiar_revisar": 50
   }
 }
 ```
@@ -129,12 +137,19 @@ Regras:
 - Cada consulta de `linkedin_posts` aceita no máximo 85 caracteres.
 - `maximo_por_consulta` limita itens e o teto financeiro é configurado
   separadamente; comentários e reações permanecem desativados no conector.
+- `prompt_version` e o hash do currículo identificam uma execução da análise.
+- `limiar_revisar` deve ser menor que `limiar_aplicar`.
 
 ### 3.2 `curriculo_base.md`
 
 Markdown limpo com dados reais do usuário. Ele é a única fonte autorizada para
 informações pessoais, experiência, formação e competências utilizadas no
 currículo otimizado.
+
+O repositório contém apenas `curriculo_base.example.md`.
+`curriculo_base.md` é criado localmente, fica no `.gitignore` e nunca deve ser
+forçado para o Git. Para reduzir exposição ao modelo, nome e contato antes da
+primeira seção `##` não entram nos fatos usados na análise.
 
 ### 3.3 Segredos
 
@@ -195,6 +210,11 @@ O modo de teste usa `vagas-dry-run.db`; a execução persistente usa
 `vagas-producao.db`. Assim, testes não consomem vagas que ainda precisam ser
 processadas no fluxo real.
 
+As análises ficam em tabela separada, sem alterar o status da triagem. Sua chave
+é `(plataforma, id_externo, prompt_version, curriculo_sha256)`. Uma mudança no
+currículo ou na versão do prompt faz a vaga voltar à fila e preserva o
+resultado anterior para auditoria.
+
 ## 6. Saídas
 
 Para evitar colisões quando uma empresa publica várias vagas, a estrutura é:
@@ -206,6 +226,7 @@ workspace/outputs/
         └── [empresa]/
             └── [cargo-id-da-vaga]/
                 ├── Relatorio_Match.txt
+                ├── Analise_Semantica.json
                 ├── Curriculo_Otimizado.pdf
                 └── manifest.json
 ```
@@ -221,8 +242,12 @@ Deve informar:
 - justificativa da recomendação;
 - taxa de compatibilidade e método de cálculo.
 
-Na primeira fase executável, o relatório contém apenas a triagem determinística
-e marca a análise semântica como pendente.
+O relatório nasce com a triagem determinística e marca a análise semântica como
+pendente. Depois que o Hermes salva a avaliação, o mesmo arquivo recebe score,
+recomendação, requisitos, lacunas e o texto de cada fato citado.
+
+`Analise_Semantica.json` preserva o contrato estruturado completo, incluindo
+provedor, modelo, versão do prompt e hash do currículo.
 
 ### 6.2 `Curriculo_Otimizado.pdf`
 
@@ -253,7 +278,7 @@ flowchart TD
     Apify --> Normalizacao["Normalização"]
     Normalizacao --> Pipeline
     Pipeline --> SQLite["SQLite"]
-    Pipeline --> Outputs["Relatório e PDF"]
+    Pipeline --> Outputs["Relatórios e análise JSON"]
     Pipeline --> Telegram["Telegram"]
 ```
 
@@ -272,11 +297,17 @@ O MCP usa Streamable HTTP apenas na rede interna do Compose. O manifesto real do
 Hermes é `config/hermes/config.yaml`, pois o Hermes atual lê sua configuração em
 YAML.
 
-Na integração de posts, o Hermes enxerga apenas a ferramenta
+Na integração de posts, o Hermes enxerga a ferramenta
 `scan_linkedin_posts`. O token não entra no prompt. O MCP fixa o Actor
 `harvestapi/linkedin-post-search`, desativa comentários e reações, limita os
 itens e envia `maxTotalChargeUsd`. O modo `dry-run` isola banco e artefatos, mas
 não evita o consumo da chamada externa.
+
+A análise semântica é realizada pelo próprio Hermes com o modelo configurado.
+O MCP expõe somente a fila, o contexto factual, o salvamento validado e a
+consulta de resultados. O código Python não chama outro LLM: ele estrutura o
+currículo em IDs `cv-*`, rejeita referências inexistentes, calcula o score e
+persiste os artefatos.
 
 ## 8. Pipeline
 
@@ -290,10 +321,14 @@ não evita o consumo da chamada externa.
    sinal explícito de contratação; localidade e modalidade desconhecidas são
    preservadas para revisão humana.
 7. Persistir qualificadas e descartadas com seus motivos.
-8. Comparar vagas qualificadas com o currículo-base.
-9. Gerar relatório, currículo e manifesto de rastreabilidade.
-10. Notificar o usuário.
-11. Aguardar revisão humana.
+8. Listar vagas sem análise para a versão do prompt e hash atuais.
+9. Entregar ao Hermes uma vaga e fatos numerados do currículo.
+10. Classificar requisitos e citar somente os IDs de fatos existentes.
+11. Validar as evidências e calcular o score de forma determinística.
+12. Persistir `Analise_Semantica.json` e atualizar o relatório.
+13. Gerar currículo e manifesto de rastreabilidade em etapa futura.
+14. Notificar o usuário em etapa futura.
+15. Aguardar revisão humana.
 
 ## 9. Segurança
 
@@ -309,6 +344,9 @@ não evita o consumo da chamada externa.
 - Limites de itens e custo são enviados em toda execução do Actor.
 - O Hermes só chama a fonte paga de posts mediante pedido explícito do usuário.
 - Logs devem registrar decisões, mas não conteúdo sensível do currículo.
+- O currículo real é ignorado pelo Git; somente um modelo sem dados pessoais é
+  versionado.
+- Contextos ficam inválidos quando o hash do currículo muda.
 
 ## 10. Observabilidade
 
@@ -335,6 +373,10 @@ Cada execução deverá registrar:
 - Plataforma desativada não é consultada nem processada.
 - CAPTCHA interrompe o conector e pede intervenção.
 - Nenhum item ausente no currículo-base aparece no currículo otimizado.
+- Nome e contato antes da primeira seção profissional não entram no contexto.
+- Evidências `cv-*` inexistentes são rejeitadas.
+- O score semântico é calculado pelo serviço, não fornecido pelo modelo.
+- Alterar o currículo torna a vaga pendente para uma nova análise.
 - Telegram só envia para IDs na allowlist.
 - `auto apply` não pode ser ativado no MVP.
 
@@ -348,7 +390,7 @@ Cada execução deverá registrar:
 - [ ] Fase 5 — Conector Gupy com dados estruturados.
 - [ ] Fase 6 — Avaliar a aba formal de vagas do LinkedIn com integração
   permitida e pausa em CAPTCHA.
-- [ ] Fase 7 — Análise semântica e rastreabilidade contra o currículo-base.
+- [x] Fase 7 — Análise semântica e rastreabilidade contra o currículo-base.
 - [ ] Fase 8 — Geração do PDF ATS com `fpdf2`.
 - [ ] Fase 9 — Notificação Telegram com anexo.
 - [ ] Fase 10 — Agendamento, métricas, testes de integração e endurecimento.

@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 TextoObrigatorio = Annotated[str, Field(min_length=1)]
+HashSha256 = Annotated[str, Field(pattern=r"^[a-fA-F0-9]{64}$")]
 
 
 class ModeloEstrito(BaseModel):
@@ -47,6 +48,23 @@ class MotivoDescarte(StrEnum):
     LOCALIDADE_DIVERGENTE = "localidade_divergente"
     MODALIDADE_DIVERGENTE = "modalidade_divergente"
     SEM_INDICIO_CONTRATACAO = "sem_indicio_contratacao"
+
+
+class ImportanciaRequisito(StrEnum):
+    OBRIGATORIO = "obrigatorio"
+    DESEJAVEL = "desejavel"
+
+
+class StatusRequisito(StrEnum):
+    ATENDIDO = "atendido"
+    PARCIAL = "parcial"
+    AUSENTE = "ausente"
+
+
+class RecomendacaoAnalise(StrEnum):
+    APLICAR = "aplicar"
+    REVISAR = "revisar"
+    NAO_APLICAR = "nao_aplicar"
 
 
 class FiltrosBusca(ModeloEstrito):
@@ -142,11 +160,29 @@ class LinkedInPosts(ModeloEstrito):
         return self
 
 
+class AnaliseSemanticaConfig(ModeloEstrito):
+    ativa: bool = True
+    prompt_version: TextoObrigatorio = "semantic-v1"
+    provedor: TextoObrigatorio = "nvidia"
+    modelo: TextoObrigatorio = "z-ai/glm-5.2"
+    limiar_aplicar: int = Field(default=75, ge=1, le=100)
+    limiar_revisar: int = Field(default=50, ge=0, le=99)
+
+    @model_validator(mode="after")
+    def validar_limites_recomendacao(self) -> AnaliseSemanticaConfig:
+        if self.limiar_revisar >= self.limiar_aplicar:
+            raise ValueError(
+                "'limiar_revisar' deve ser menor que 'limiar_aplicar'"
+            )
+        return self
+
+
 class ConfiguracaoBusca(ModeloEstrito):
     filtros_busca: FiltrosBusca
     plataformas_ativas: PlataformasAtivas
     automacao: Automacao
     linkedin_posts: LinkedInPosts | None = None
+    analise_semantica: AnaliseSemanticaConfig | None = None
 
 
 class Vaga(ModeloEstrito):
@@ -183,3 +219,94 @@ class ResumoExecucao(ModeloEstrito):
     descartadas: int = 0
     duplicadas: int = 0
     relatorios_gerados: list[str] = Field(default_factory=list)
+
+
+class FatoCurriculo(ModeloEstrito):
+    id: TextoObrigatorio
+    secao: TextoObrigatorio
+    texto: TextoObrigatorio
+
+
+class RequisitoAnaliseSemantica(ModeloEstrito):
+    requisito: TextoObrigatorio
+    importancia: ImportanciaRequisito
+    status: StatusRequisito
+    evidencias_curriculo: list[TextoObrigatorio] = Field(
+        default_factory=list,
+        max_length=20,
+    )
+    justificativa: Annotated[str, Field(min_length=1, max_length=1000)]
+
+    @model_validator(mode="after")
+    def validar_evidencias(self) -> RequisitoAnaliseSemantica:
+        if self.status in {
+            StatusRequisito.ATENDIDO,
+            StatusRequisito.PARCIAL,
+        } and not self.evidencias_curriculo:
+            raise ValueError(
+                "requisitos atendidos ou parciais exigem evidências do currículo"
+            )
+        if (
+            self.status == StatusRequisito.AUSENTE
+            and self.evidencias_curriculo
+        ):
+            raise ValueError(
+                "requisitos ausentes não podem referenciar evidências"
+            )
+        return self
+
+
+class AnaliseSemanticaEntrada(ModeloEstrito):
+    prompt_version: TextoObrigatorio
+    curriculo_sha256: HashSha256
+    resumo: Annotated[str, Field(min_length=1, max_length=1500)]
+    requisitos: list[RequisitoAnaliseSemantica] = Field(
+        min_length=1,
+        max_length=30,
+    )
+    palavras_chave_ats: list[TextoObrigatorio] = Field(
+        default_factory=list,
+        max_length=30,
+    )
+
+    @field_validator("requisitos")
+    @classmethod
+    def impedir_requisitos_repetidos(
+        cls,
+        requisitos: list[RequisitoAnaliseSemantica],
+    ) -> list[RequisitoAnaliseSemantica]:
+        chaves = [requisito.requisito.casefold() for requisito in requisitos]
+        if len(chaves) != len(set(chaves)):
+            raise ValueError("a análise contém requisitos repetidos")
+        return requisitos
+
+    @field_validator("palavras_chave_ats")
+    @classmethod
+    def remover_palavras_ats_repetidas(cls, palavras: list[str]) -> list[str]:
+        resultado: list[str] = []
+        conhecidas: set[str] = set()
+        for palavra in palavras:
+            chave = palavra.casefold()
+            if chave not in conhecidas:
+                conhecidas.add(chave)
+                resultado.append(palavra)
+        return resultado
+
+
+class AnaliseSemantica(AnaliseSemanticaEntrada):
+    plataforma: Plataforma
+    id_externo: TextoObrigatorio
+    score: int = Field(ge=0, le=100)
+    recomendacao: RecomendacaoAnalise
+    pontos_fortes: list[TextoObrigatorio] = Field(default_factory=list)
+    lacunas: list[TextoObrigatorio] = Field(default_factory=list)
+    provedor: TextoObrigatorio
+    modelo: TextoObrigatorio
+    analisada_em: datetime
+
+    @field_validator("analisada_em")
+    @classmethod
+    def exigir_timezone_analise(cls, valor: datetime) -> datetime:
+        if valor.tzinfo is None or valor.utcoffset() is None:
+            raise ValueError("a data da análise deve conter timezone")
+        return valor

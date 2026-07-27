@@ -6,13 +6,13 @@ LinkedIn: https://linkedin.com/in/seu-perfil | GitHub: https://github.com/seu-us
 ## Resumo profissional
 
 Desenvolvedor de software com experiência em APIs, sistemas distribuídos e
-aplicações de inteligência artificial.
+aplicações web.
 
 ## Competências técnicas
 
-- Linguagens: Python, TypeScript e SQL
+- Linguagens: Python, JavaScript, TypeScript e SQL
 - Backend: FastAPI, Django, Node.js e NestJS
-- IA e dados: APIs de modelos de linguagem, PostgreSQL e processamento de dados
+- Frontend: React e Next.js
 - Infraestrutura: Docker, Git e Linux
 
 ## Histórico profissional
@@ -27,4 +27,3 @@ aplicações de inteligência artificial.
 ### Instituição — Curso (ano de início — conclusão ou previsão)
 
 - Inclua somente formações e atividades reais.
-

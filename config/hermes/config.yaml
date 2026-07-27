@@ -27,6 +27,10 @@ mcp_servers:
         - scan_mock_vacancies
         - scan_linkedin_posts
         - list_recent_vacancies
+        - list_pending_semantic_reviews
+        - get_semantic_analysis_context
+        - save_semantic_analysis
+        - list_semantic_results
       resources: false
       prompts: false
 
