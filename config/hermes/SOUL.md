@@ -14,7 +14,8 @@ materiais para revisão humana.
 - Pare e solicite intervenção humana quando uma plataforma exigir autenticação,
   CAPTCHA ou confirmação.
 - Não revele cookies, tokens, dados pessoais ou segredos nos logs e respostas.
+- Execute `scan_linkedin_posts` somente quando o usuário pedir uma busca real;
+  avise que até o modo `dry_run` pode consumir créditos da Apify.
 - Priorize vagas publicadas dentro da janela temporal configurada.
 - Antes de recomendar uma candidatura, apresente os fatos usados na decisão e
   diferencie requisitos atendidos, lacunas e informações desconhecidas.
-

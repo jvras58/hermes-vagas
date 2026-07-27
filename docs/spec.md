@@ -66,7 +66,13 @@ Todos os arquivos ficam em `workspace/inputs/`.
     "palavras_chave": [
       "Desenvolvedor Python",
       "Engenheiro de IA",
-      "Python Developer"
+      "Python Developer",
+      "Python",
+      "FastAPI",
+      "Django",
+      "AI Engineer",
+      "LLM",
+      "LangChain"
     ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
@@ -82,6 +88,22 @@ Todos os arquivos ficam em `workspace/inputs/`.
     "notificar_via_telegram": false,
     "tentar_auto_apply_simplificado": false,
     "dry_run": true
+  },
+  "linkedin_posts": {
+    "ativo": true,
+    "consultas": [
+      "\"estamos contratando\" AND (Python OR FastAPI OR Django)",
+      "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")"
+    ],
+    "ordenar_por": "date",
+    "maximo_por_consulta": 5,
+    "sinais_contratacao": [
+      "vaga",
+      "vagas",
+      "oportunidade",
+      "contratando",
+      "hiring"
+    ]
   }
 }
 ```
@@ -92,6 +114,9 @@ Regras:
 - `interromper_em_captcha` deve permanecer `true`.
 - `tentar_auto_apply_simplificado` permanece `false` durante o MVP.
 - `dry_run` separa banco e outputs de teste dos dados persistentes.
+- Cada consulta de `linkedin_posts` aceita no máximo 85 caracteres.
+- `maximo_por_consulta` limita itens e o teto financeiro é configurado
+  separadamente; comentários e reações permanecem desativados no conector.
 
 ### 3.2 `curriculo_base.md`
 
@@ -107,6 +132,7 @@ segredos e nunca são versionados:
 - chave do provedor de LLM;
 - token e usuários permitidos do Telegram;
 - credenciais de conectores autorizados;
+- token da Apify;
 - chaves de APIs de terceiros.
 
 Cookies de sessão, caso uma integração futura realmente os exija, devem ficar em
@@ -128,12 +154,18 @@ Todos os conectores devem produzir este contrato antes da triagem:
   "descricao": "Descrição completa da vaga",
   "url": "https://exemplo.com/vagas/123456",
   "publicada_em": "2026-07-26T09:30:00-03:00",
-  "coletada_em": "2026-07-26T12:00:00-03:00"
+  "coletada_em": "2026-07-26T12:00:00-03:00",
+  "origem": "anuncio",
+  "autor_nome": null,
+  "autor_url": null
 }
 ```
 
 A chave de deduplicação é `(plataforma, id_externo)`. Se uma fonte não fornecer
-ID estável, o conector deverá gerar um hash da URL canônica.
+ID estável, o conector deverá gerar um hash da URL canônica. Posts sociais usam
+`origem: post_linkedin` e preservam autor e perfil quando disponíveis. Cargo,
+empresa, localidade e modalidade inferidos do texto devem ser confirmados no
+link antes da candidatura.
 
 ## 5. Persistência e idempotência
 
@@ -204,9 +236,9 @@ o conteúdo não puder ser rastreado até o currículo-base.
 ```mermaid
 flowchart TD
     Hermes["Hermes Agent"] -->|"MCP interno"| MCP["Job Hunter MCP"]
-    MCP --> Descoberta["Conectores de descoberta"]
+    MCP --> Apify["Apify: posts do LinkedIn"]
     MCP --> Pipeline["Pipeline Python"]
-    Descoberta --> Normalizacao["Normalização"]
+    Apify --> Normalizacao["Normalização"]
     Normalizacao --> Pipeline
     Pipeline --> SQLite["SQLite"]
     Pipeline --> Outputs["Relatório e PDF"]
@@ -219,7 +251,7 @@ Responsabilidades:
 | --- | --- |
 | Hermes Agent | Orquestra ferramentas, realiza análise semântica e conversa com o usuário |
 | Job Hunter MCP | Expõe uma superfície mínima e tipada ao Hermes |
-| Conectores | Coletam e normalizam dados de cada plataforma |
+| Conector Apify | Pesquisa posts públicos e normaliza os dados do Actor permitido |
 | Pipeline Python | Filtra, deduplica, persiste e gera artefatos |
 | SQLite | Garante auditoria e idempotência |
 | Telegram | Entrega o resultado para revisão humana |
@@ -228,14 +260,23 @@ O MCP usa Streamable HTTP apenas na rede interna do Compose. O manifesto real do
 Hermes é `config/hermes/config.yaml`, pois o Hermes atual lê sua configuração em
 YAML.
 
+Na integração de posts, o Hermes enxerga apenas a ferramenta
+`scan_linkedin_posts`. O token não entra no prompt. O MCP fixa o Actor
+`harvestapi/linkedin-post-search`, desativa comentários e reações, limita os
+itens e envia `maxTotalChargeUsd`. O modo `dry-run` isola banco e artefatos, mas
+não evita o consumo da chamada externa.
+
 ## 8. Pipeline
 
 1. Validar `config_busca.json` e segredos obrigatórios.
-2. Consultar conectores habilitados.
+2. Consultar conectores habilitados; para posts do LinkedIn, enviar as consultas
+   booleanas ao Actor configurado.
 3. Normalizar os registros.
 4. Deduplicar por plataforma e ID externo.
 5. Aplicar filtro temporal antes de qualquer chamada de LLM.
-6. Aplicar plataforma, palavra-chave, localidade e modalidade.
+6. Aplicar plataforma e palavras-chave. Para posts sociais, exigir também um
+   sinal explícito de contratação; localidade e modalidade desconhecidas são
+   preservadas para revisão humana.
 7. Persistir qualificadas e descartadas com seus motivos.
 8. Comparar vagas qualificadas com o currículo-base.
 9. Gerar relatório, currículo e manifesto de rastreabilidade.
@@ -252,6 +293,9 @@ YAML.
   *prompt injection*.
 - Nenhuma autoaplicação no MVP.
 - Nenhum contorno de CAPTCHA ou bloqueio.
+- O conector de posts não recebe cookies ou credenciais do LinkedIn.
+- Limites de itens e custo são enviados em toda execução do Actor.
+- O Hermes só chama a fonte paga de posts mediante pedido explícito do usuário.
 - Logs devem registrar decisões, mas não conteúdo sensível do currículo.
 
 ## 10. Observabilidade
@@ -270,6 +314,9 @@ Cada execução deverá registrar:
 
 - Uma vaga com 48 horas exatas ainda é aceita.
 - Uma vaga com mais de 48 horas é descartada antes da LLM.
+- Um post recente sem indício de contratação é descartado.
+- A busca de posts não solicita comentários nem reações.
+- Uma execução real do Actor respeita o teto de itens e de custo configurados.
 - Datas sem timezone são rejeitadas.
 - A mesma vaga não gera dois artefatos no mesmo ambiente.
 - `dry-run` não altera o banco de produção.
@@ -285,10 +332,12 @@ Cada execução deverá registrar:
 - [x] Fase 2 — Estrutura física, configuração e dados de teste.
 - [x] Fase 3A — Schemas, filtro temporal, SQLite, deduplicação e `dry-run`.
 - [x] Fase 3B — MCP inicial e manifesto `config.yaml` do Hermes.
-- [ ] Fase 4 — Conector Gupy com dados estruturados.
-- [ ] Fase 5 — Conector LinkedIn permitido, com pausa em CAPTCHA.
-- [ ] Fase 6 — Análise semântica e rastreabilidade contra o currículo-base.
-- [ ] Fase 7 — Geração do PDF ATS com `fpdf2`.
-- [ ] Fase 8 — Notificação Telegram com anexo.
-- [ ] Fase 9 — Agendamento, métricas, testes de integração e endurecimento.
-- [ ] Fase 10 — Avaliar autoaplicação somente após revisão de risco e termos.
+- [x] Fase 4 — Busca de posts públicos do LinkedIn via Apify, com limites.
+- [ ] Fase 5 — Conector Gupy com dados estruturados.
+- [ ] Fase 6 — Avaliar a aba formal de vagas do LinkedIn com integração
+  permitida e pausa em CAPTCHA.
+- [ ] Fase 7 — Análise semântica e rastreabilidade contra o currículo-base.
+- [ ] Fase 8 — Geração do PDF ATS com `fpdf2`.
+- [ ] Fase 9 — Notificação Telegram com anexo.
+- [ ] Fase 10 — Agendamento, métricas, testes de integração e endurecimento.
+- [ ] Fase 11 — Avaliar autoaplicação somente após revisão de risco e termos.

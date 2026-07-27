@@ -3,7 +3,13 @@
     "palavras_chave": [
       "Desenvolvedor Python",
       "Engenheiro de IA",
-      "Python Developer"
+      "Python Developer",
+      "Python",
+      "FastAPI",
+      "Django",
+      "AI Engineer",
+      "LLM",
+      "LangChain"
     ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
@@ -19,6 +25,29 @@
     "notificar_via_telegram": false,
     "tentar_auto_apply_simplificado": false,
     "dry_run": true
+  },
+  "linkedin_posts": {
+    "ativo": true,
+    "consultas": [
+      "\"estamos contratando\" AND (Python OR FastAPI OR Django)",
+      "(vaga OR oportunidade) AND (Python OR \"engenheiro de software\")",
+      "(\"we're hiring\" OR \"join our team\") AND (Python OR \"AI Engineer\")",
+      "(contratando OR hiring) AND (LLM OR LangChain OR agentes)",
+      "(vaga OR hiring) AND (remoto OR remote) AND (Python OR IA)"
+    ],
+    "ordenar_por": "date",
+    "maximo_por_consulta": 5,
+    "sinais_contratacao": [
+      "vaga",
+      "vagas",
+      "oportunidade",
+      "oportunidades",
+      "contratando",
+      "estamos contratando",
+      "hiring",
+      "we're hiring",
+      "join our team",
+      "open position"
+    ]
   }
 }
-

@@ -5,10 +5,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from job_hunter.discovery.base import FonteVagas
-from job_hunter.filtering import avaliar_vaga
+from job_hunter.filtering import ResultadoFiltro, avaliar_vaga
 from job_hunter.persistence.repository import RepositorioVagas
 from job_hunter.reporting import criar_relatorio_triagem
-from job_hunter.schemas import ConfiguracaoBusca, ResumoExecucao, StatusVaga
+from job_hunter.schemas import ConfiguracaoBusca, ResumoExecucao, StatusVaga, Vaga
+
+
+TipoAvaliador = Callable[
+    [Vaga, ConfiguracaoBusca, datetime],
+    ResultadoFiltro,
+]
 
 
 class PipelineVagas:
@@ -19,12 +25,14 @@ class PipelineVagas:
         raiz_saida: Path,
         dry_run: bool,
         relogio: Callable[[], datetime] | None = None,
+        avaliador: TipoAvaliador | None = None,
     ) -> None:
         self.configuracao = configuracao
         self.repositorio = repositorio
         self.raiz_saida = raiz_saida
         self.dry_run = dry_run
         self.relogio = relogio or (lambda: datetime.now(UTC))
+        self.avaliador = avaliador or avaliar_vaga
 
     def executar(self, fonte: FonteVagas) -> ResumoExecucao:
         agora = self.relogio()
@@ -41,7 +49,7 @@ class PipelineVagas:
                 resumo.duplicadas += 1
                 continue
 
-            resultado = avaliar_vaga(vaga, self.configuracao, agora)
+            resultado = self.avaliador(vaga, self.configuracao, agora)
             if not resultado.qualificada:
                 resumo.descartadas += 1
                 self.repositorio.registrar(
@@ -62,4 +70,3 @@ class PipelineVagas:
             resumo.relatorios_gerados.append(str(relatorio))
 
         return resumo
-
