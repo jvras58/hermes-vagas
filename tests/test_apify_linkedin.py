@@ -17,7 +17,6 @@ from job_hunter.discovery.apify_linkedin import (
     ErroFonteApify,
 )
 
-
 AGORA = datetime(2026, 7, 26, 12, tzinfo=UTC)
 
 

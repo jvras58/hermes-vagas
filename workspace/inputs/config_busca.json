@@ -30,7 +30,7 @@
     "interromper_em_captcha": true,
     "notificar_via_telegram": false,
     "tentar_auto_apply_simplificado": false,
-    "dry_run": true
+    "dry_run": false
   },
   "linkedin_posts": {
     "ativo": true,
