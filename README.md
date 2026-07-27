@@ -216,7 +216,7 @@ docker compose up -d --build --force-recreate \
   hermes-init job-hunter-mcp hermes
 ```
 
-Execute primeiro pela CLI:
+Para fazer a primeira varredura pela CLI:
 
 ```bash
 docker compose run --rm job-hunter-mcp \
@@ -229,14 +229,16 @@ desativados. O pipeline descarta localmente posts com mais de 48 horas, sem
 indício de contratação ou sem tecnologia compatível, e nunca contata o autor
 nem inicia candidatura.
 
-Depois, no painel do Hermes, peça:
+Como alternativa à CLI, faça a primeira varredura pelo painel do Hermes:
 
 ```text
 Execute scan_linkedin_posts em dry_run e resuma os posts qualificados.
 ```
 
 Os resultados ficam em `workspace/outputs/dry-run/` e podem ser consultados com
-`list_recent_vacancies`.
+`list_recent_vacancies`. Se você já executou a CLI, peça ao Hermes para usar
+`list_recent_vacancies` em vez de iniciar outra varredura; uma nova execução
+classificará os mesmos posts como duplicados.
 
 ## Estrutura
 
