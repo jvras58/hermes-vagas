@@ -200,6 +200,9 @@ class ServicoAnaliseSemantica:
                 "Não infira experiência que não esteja explícita no currículo.",
                 "Classifique requisitos explícitos como obrigatórios ou desejáveis.",
                 "Use status ausente quando não houver evidência suficiente.",
+                "Sugira ajustes apenas com fatos existentes em fatos_curriculo.",
+                "Preencha texto_sugerido só em ajustes do tipo reescrever.",
+                "Não altere o currículo-base nem apresente sugestões como fatos novos.",
             ],
             "metodologia_score": {
                 "peso_obrigatorio": 2,
@@ -228,6 +231,18 @@ class ServicoAnaliseSemantica:
                     }
                 ],
                 "palavras_chave_ats": ["termos relevantes da vaga"],
+                "ajustes_curriculo": [
+                    {
+                        "tipo": "destacar, reordenar ou reescrever",
+                        "secao_alvo": "seção do currículo a revisar",
+                        "fatos_curriculo": ["cv-001"],
+                        "instrucao": "ação objetiva para revisão humana",
+                        "texto_sugerido": None,
+                        "justificativa": (
+                            "relação verificável entre a vaga e os fatos citados"
+                        ),
+                    }
+                ],
             },
         }
 
@@ -345,6 +360,15 @@ class ServicoAnaliseSemantica:
             if desconhecidos:
                 raise ErroAnaliseSemantica(
                     "evidências inexistentes no currículo: "
+                    + ", ".join(desconhecidos)
+                )
+        for ajuste in entrada.ajustes_curriculo:
+            desconhecidos = sorted(
+                set(ajuste.fatos_curriculo) - ids_validos
+            )
+            if desconhecidos:
+                raise ErroAnaliseSemantica(
+                    "fatos inexistentes no ajuste de currículo: "
                     + ", ".join(desconhecidos)
                 )
 

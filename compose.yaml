@@ -22,11 +22,11 @@ services:
     env_file:
       - .env
     environment:
-      JOB_HUNTER_WORKSPACE: /app/workspace
+      JOB_HUNTER_WORKSPACE: /workspace
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8000
     volumes:
-      - ./workspace:/app/workspace
+      - ./workspace:/workspace
     expose:
       - "8000"
     read_only: true

@@ -50,7 +50,9 @@ não envia uma candidatura sem confirmação explícita.
 
 ### 2.5 Notificação com revisão humana
 
-- Enviar ao Telegram o resumo, link e currículo preparado.
+- Enviar ao Telegram o relatório diário com vagas, links, score e ajustes
+  factuais propostos.
+- Anexar o currículo preparado quando a fase de PDF ATS estiver implementada.
 - Separar requisitos atendidos, lacunas e informações desconhecidas.
 - Exigir confirmação antes de qualquer candidatura.
 
@@ -90,9 +92,9 @@ Todos os arquivos ficam em `workspace/inputs/`.
   "automacao": {
     "navegacao_controlada": true,
     "interromper_em_captcha": true,
-    "notificar_via_telegram": false,
+    "notificar_via_telegram": true,
     "tentar_auto_apply_simplificado": false,
-    "dry_run": true
+    "dry_run": false
   },
   "linkedin_posts": {
     "ativo": true,
@@ -119,11 +121,17 @@ Todos os arquivos ficam em `workspace/inputs/`.
   },
   "analise_semantica": {
     "ativa": true,
-    "prompt_version": "semantic-v1",
+    "prompt_version": "semantic-v2",
     "provedor": "nvidia",
     "modelo": "z-ai/glm-5.2",
     "limiar_aplicar": 75,
     "limiar_revisar": 50
+  },
+  "resumo_diario": {
+    "ativo": true,
+    "agendamento_cron": "0 8 * * *",
+    "fuso_horario": "America/Recife",
+    "maximo_analises_por_execucao": 20
   }
 }
 ```
@@ -139,6 +147,8 @@ Regras:
   separadamente; comentários e reações permanecem desativados no conector.
 - `prompt_version` e o hash do currículo identificam uma execução da análise.
 - `limiar_revisar` deve ser menor que `limiar_aplicar`.
+- `agendamento_cron` usa cinco campos e o fuso deve ser um identificador IANA.
+- O cron real só é criado pelo Hermes depois da confirmação do usuário.
 
 ### 3.2 `curriculo_base.md`
 
@@ -223,10 +233,12 @@ Para evitar colisões quando uma empresa publica várias vagas, a estrutura é:
 workspace/outputs/
 └── [ambiente]/
     └── [AAAA-MM-DD]/
+        ├── Relatorio_Diario.md
         └── [empresa]/
             └── [cargo-id-da-vaga]/
                 ├── Relatorio_Match.txt
                 ├── Analise_Semantica.json
+                ├── Sugestoes_Curriculo.md
                 ├── Curriculo_Otimizado.pdf
                 └── manifest.json
 ```
@@ -249,23 +261,31 @@ recomendação, requisitos, lacunas e o texto de cada fato citado.
 `Analise_Semantica.json` preserva o contrato estruturado completo, incluindo
 provedor, modelo, versão do prompt e hash do currículo.
 
-### 6.2 `Curriculo_Otimizado.pdf`
+`Sugestoes_Curriculo.md` registra cada proposta de destaque, reordenação ou
+reescrita, os IDs `cv-*` usados e o texto original. Ele não altera o
+currículo-base.
+
+### 6.2 `Relatorio_Diario.md`
+
+Consolida as análises salvas na data local configurada. Deve incluir cargo,
+empresa, link, score, recomendação, requisitos, lacunas, palavras-chave ATS e
+ajustes factuais. O gateway do Hermes o envia usando `MEDIA:/workspace/...`.
+
+### 6.3 `Curriculo_Otimizado.pdf`
 
 PDF gerado com `fpdf2`, sem colunas, gráficos, ícones, barras de nível ou
 elementos que prejudiquem a leitura por ATS. A geração do PDF será bloqueada se
-o conteúdo não puder ser rastreado até o currículo-base.
+o conteúdo não puder ser rastreado até o currículo-base. Esta saída permanece
+pendente.
 
-### 6.3 Notificação
+### 6.4 Notificação
 
 ```text
-🚨 NOVA VAGA ENCONTRADA — publicada há 8 horas
-💼 Cargo: Engenheiro de IA Jr
-🏢 Empresa: Nexus Tech
-📍 Local: Remoto — Brasil
-✅ Requisitos atendidos: Python, APIs, Docker
-⚠️ Lacunas: experiência com ferramenta X não identificada
-🔗 Link: https://...
-📂 Currículo otimizado anexado para revisão
+📊 RELATÓRIO DIÁRIO — 3 vagas analisadas
+✅ Aplicar: 1
+🔎 Revisar: 2
+⛔ Não aplicar: 0
+📂 Relatorio_Diario.md anexado para revisão
 ```
 
 ## 7. Arquitetura
@@ -279,7 +299,8 @@ flowchart TD
     Normalizacao --> Pipeline
     Pipeline --> SQLite["SQLite"]
     Pipeline --> Outputs["Relatórios e análise JSON"]
-    Pipeline --> Telegram["Telegram"]
+    Outputs --> Hermes
+    Hermes --> Telegram["Telegram"]
 ```
 
 Responsabilidades:
@@ -291,7 +312,7 @@ Responsabilidades:
 | Conector Apify | Pesquisa posts públicos e normaliza os dados do Actor permitido |
 | Pipeline Python | Filtra, deduplica, persiste e gera artefatos |
 | SQLite | Garante auditoria e idempotência |
-| Telegram | Entrega o resultado para revisão humana |
+| Telegram | Canal do gateway Hermes para chat e entrega agendada |
 
 O MCP usa Streamable HTTP apenas na rede interna do Compose. O manifesto real do
 Hermes é `config/hermes/config.yaml`, pois o Hermes atual lê sua configuração em
@@ -307,7 +328,11 @@ A análise semântica é realizada pelo próprio Hermes com o modelo configurado
 O MCP expõe somente a fila, o contexto factual, o salvamento validado e a
 consulta de resultados. O código Python não chama outro LLM: ele estrutura o
 currículo em IDs `cv-*`, rejeita referências inexistentes, calcula o score e
-persiste os artefatos.
+persiste os artefatos. Ajustes de currículo também precisam citar IDs válidos.
+
+O MCP ainda expõe um plano de rotina e a compilação do relatório diário. O
+Hermes cria o cron somente após confirmação, executa sessões isoladas no fuso
+configurado e entrega o arquivo pelo próprio gateway Telegram.
 
 ## 8. Pipeline
 
@@ -323,12 +348,13 @@ persiste os artefatos.
 7. Persistir qualificadas e descartadas com seus motivos.
 8. Listar vagas sem análise para a versão do prompt e hash atuais.
 9. Entregar ao Hermes uma vaga e fatos numerados do currículo.
-10. Classificar requisitos e citar somente os IDs de fatos existentes.
-11. Validar as evidências e calcular o score de forma determinística.
-12. Persistir `Analise_Semantica.json` e atualizar o relatório.
-13. Gerar currículo e manifesto de rastreabilidade em etapa futura.
-14. Notificar o usuário em etapa futura.
-15. Aguardar revisão humana.
+10. Classificar requisitos e propor ajustes citando somente fatos existentes.
+11. Validar evidências e ajustes e calcular o score deterministicamente.
+12. Persistir análise, relatório individual e sugestões de currículo.
+13. Consolidar as análises da data em `Relatorio_Diario.md`.
+14. Entregar o relatório ao Telegram pelo gateway Hermes.
+15. Gerar currículo e manifesto de rastreabilidade em etapa futura.
+16. Aguardar revisão humana.
 
 ## 9. Segurança
 
@@ -342,7 +368,8 @@ persiste os artefatos.
 - Nenhum contorno de CAPTCHA ou bloqueio.
 - O conector de posts não recebe cookies ou credenciais do LinkedIn.
 - Limites de itens e custo são enviados em toda execução do Actor.
-- O Hermes só chama a fonte paga de posts mediante pedido explícito do usuário.
+- O Hermes só chama a fonte paga mediante pedido explícito ou cron previamente
+  confirmado pelo usuário.
 - Logs devem registrar decisões, mas não conteúdo sensível do currículo.
 - O currículo real é ignorado pelo Git; somente um modelo sem dados pessoais é
   versionado.
@@ -375,8 +402,11 @@ Cada execução deverá registrar:
 - Nenhum item ausente no currículo-base aparece no currículo otimizado.
 - Nome e contato antes da primeira seção profissional não entram no contexto.
 - Evidências `cv-*` inexistentes são rejeitadas.
+- Ajustes de currículo com IDs `cv-*` inexistentes são rejeitados.
 - O score semântico é calculado pelo serviço, não fornecido pelo modelo.
 - Alterar o currículo torna a vaga pendente para uma nova análise.
+- O relatório diário respeita data e fuso configurados.
+- O caminho do anexo existe igualmente no MCP e no Hermes.
 - Telegram só envia para IDs na allowlist.
 - `auto apply` não pode ser ativado no MVP.
 
@@ -392,6 +422,8 @@ Cada execução deverá registrar:
   permitida e pausa em CAPTCHA.
 - [x] Fase 7 — Análise semântica e rastreabilidade contra o currículo-base.
 - [ ] Fase 8 — Geração do PDF ATS com `fpdf2`.
-- [ ] Fase 9 — Notificação Telegram com anexo.
-- [ ] Fase 10 — Agendamento, métricas, testes de integração e endurecimento.
+- [x] Fase 9A — Gateway Telegram e relatório diário em anexo.
+- [ ] Fase 9B — Currículo PDF em anexo.
+- [x] Fase 10A — Plano e agendamento diário com fuso e limite.
+- [ ] Fase 10B — Métricas, testes externos de integração e endurecimento.
 - [ ] Fase 11 — Avaliar autoaplicação somente após revisão de risco e termos.

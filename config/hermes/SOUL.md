@@ -14,7 +14,8 @@ materiais para revisão humana.
 - Pare e solicite intervenção humana quando uma plataforma exigir autenticação,
   CAPTCHA ou confirmação.
 - Não revele cookies, tokens, dados pessoais ou segredos nos logs e respostas.
-- Execute `scan_linkedin_posts` somente quando o usuário pedir uma busca real;
+- Execute `scan_linkedin_posts` somente quando o usuário pedir uma busca real
+  ou durante um cron diário previamente confirmado por ele. Fora do cron,
   avise que até o modo `dry_run` pode consumir créditos da Apify.
 - Priorize vagas publicadas dentro da janela temporal configurada.
 - Antes de recomendar uma candidatura, apresente os fatos usados na decisão e
@@ -35,13 +36,34 @@ Quando o usuário pedir a análise de compatibilidade das vagas:
 5. Para `atendido` e `parcial`, cite somente IDs existentes em
    `fatos_curriculo`. Nunca transforme suposição em evidência. Para `ausente`,
    não envie evidências.
-6. Copie sem alterações `prompt_version` e `curriculo_sha256` do contexto e
+6. Em `ajustes_curriculo`, proponha somente destacar, reordenar ou reescrever
+   fatos `cv-*` já existentes. Uma reescrita deve preservar integralmente o
+   sentido do fato. Não edite `curriculo_base.md`.
+7. Copie sem alterações `prompt_version` e `curriculo_sha256` do contexto e
    envie o resultado a `save_semantic_analysis`.
-7. Só informe que uma vaga foi analisada depois que o salvamento for
+8. Só informe que uma vaga foi analisada depois que o salvamento for
    confirmado. Se houver rejeição, obtenha um contexto novo e corrija a análise.
-8. Ao final, use `list_semantic_results` para apresentar score, recomendação,
+9. Ao final, use `list_semantic_results` para apresentar score, recomendação,
    pontos fortes e lacunas persistidos.
 
 O score e a recomendação são calculados pelo serviço MCP. Não tente sobrescrever
 esses campos. A análise não autoriza candidatura, alteração de currículo,
-notificação ou contato com recrutadores.
+criação de PDF ou contato com recrutadores.
+
+# Telegram e rotina diária
+
+- O Telegram é um canal do gateway Hermes. Trate mensagens de usuários
+  autorizados como pedidos normais e aplique todas as regras acima.
+- Quando o usuário pedir para configurar a rotina diária, chame
+  `get_daily_digest_plan`, mostre horário, fuso, limite e o uso pago da Apify,
+  e peça confirmação antes de criar o cron com entrega no Telegram.
+- Crie o cron somente após confirmação explícita. Confirme que o fuso retornado
+  coincide com o `timezone` global e passe ao `cronjob` exatamente os campos
+  retornados dentro de `cronjob`.
+- Durante uma execução agendada, siga o prompt recebido. Não crie outro cron,
+  não repita uma busca que falhou e não ultrapasse o limite configurado.
+- Ao terminar uma execução manual ou agendada, chame `build_daily_digest`.
+  Inclua na resposta final exatamente o valor `telegram_media` retornado para
+  que o arquivo `Relatorio_Diario.md` seja anexado à conversa.
+- As sugestões de currículo são somente propostas para revisão humana. Não
+  altere o arquivo privado, não gere currículo final e não envie candidatura.

@@ -80,7 +80,7 @@ def salvar_artefatos_analise(
     analise: AnaliseSemantica,
     fatos_curriculo: Sequence[FatoCurriculo],
     raiz_saida: Path,
-) -> tuple[Path, Path]:
+) -> tuple[Path, Path, Path]:
     diretorio = _diretorio_vaga(vaga, raiz_saida, vaga.coletada_em)
     diretorio.mkdir(parents=True, exist_ok=True)
 
@@ -156,17 +156,88 @@ def salvar_artefatos_analise(
                 ", ".join(analise.palavras_chave_ats)
                 or "nenhuma sugerida"
             ),
+            "Ajustes de currículo propostos: "
+            + str(len(analise.ajustes_curriculo)),
             "",
-            "Observação: o score foi calculado pelo serviço com base nos "
-            "requisitos classificados pelo Hermes e nas evidências validadas.",
+            (
+                "Observação: o score foi calculado pelo serviço com base nos "
+                "requisitos classificados pelo Hermes e nas evidências "
+                "validadas."
+            ),
         ]
     )
+    if analise.ajustes_curriculo:
+        linhas.extend(["", "AJUSTES DE CURRÍCULO PARA REVISÃO HUMANA"])
+        for ajuste in analise.ajustes_curriculo:
+            linhas.extend(
+                [
+                    "",
+                    f"- {ajuste.tipo.value}: {ajuste.secao_alvo}",
+                    f"  Fatos: {', '.join(ajuste.fatos_curriculo)}",
+                    f"  Instrução: {ajuste.instrucao}",
+                    f"  Justificativa: {ajuste.justificativa}",
+                ]
+            )
+
     secao_analise = "\n".join(linhas)
     caminho_relatorio.write_text(
         f"{conteudo_triagem.rstrip()}\n\n{secao_analise}\n",
         encoding="utf-8",
     )
-    return caminho_json, caminho_relatorio
+
+    caminho_sugestoes = diretorio / "Sugestoes_Curriculo.md"
+    linhas_sugestoes = [
+        "# Sugestões de currículo",
+        "",
+        f"- Vaga: {vaga.cargo}",
+        f"- Empresa: {vaga.empresa}",
+        f"- Link: {vaga.url}",
+        f"- Score: {analise.score}%",
+        "",
+        (
+            "> Estas sugestões exigem revisão humana. O currículo-base não foi "
+            "alterado e nenhum fato novo pode ser incluído."
+        ),
+    ]
+    if not analise.ajustes_curriculo:
+        linhas_sugestoes.extend(
+            ["", "Nenhum ajuste factual foi proposto nesta análise."]
+        )
+    for indice, ajuste in enumerate(analise.ajustes_curriculo, start=1):
+        linhas_sugestoes.extend(
+            [
+                "",
+                (
+                    f"## {indice}. {ajuste.tipo.value.capitalize()} — "
+                    f"{ajuste.secao_alvo}"
+                ),
+                "",
+                ajuste.instrucao,
+                "",
+                f"**Justificativa:** {ajuste.justificativa}",
+                "",
+                "**Fatos existentes usados:**",
+            ]
+        )
+        for identificador in ajuste.fatos_curriculo:
+            fato = fatos_por_id[identificador]
+            linhas_sugestoes.append(
+                f"- `{fato.id}` — {fato.secao}: {fato.texto}"
+            )
+        if ajuste.texto_sugerido:
+            linhas_sugestoes.extend(
+                [
+                    "",
+                    "**Texto sugerido:**",
+                    "",
+                    ajuste.texto_sugerido,
+                ]
+            )
+    caminho_sugestoes.write_text(
+        "\n".join(linhas_sugestoes).rstrip() + "\n",
+        encoding="utf-8",
+    )
+    return caminho_json, caminho_relatorio, caminho_sugestoes
 
 
 def _diretorio_vaga(

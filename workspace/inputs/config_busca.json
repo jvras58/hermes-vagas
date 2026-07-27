@@ -1,22 +1,22 @@
 {
   "filtros_busca": {
-  "palavras_chave": [
-    "Desenvolvedor Python",
-    "Engenheiro de Software",
-    "Desenvolvedor Frontend",
-    "Desenvolvedor Backend",
-    "Desenvolvedor Full Stack",
-    "Desenvolvedor backend",
-    "Desenvolvedor Front-end",
-    "Python",
-    "FastAPI",
-    "Django",
-    "React",
-    "Next.js",
-    "NextJS",
-    "JavaScript",
-    "TypeScript"
-  ],
+    "palavras_chave": [
+      "Desenvolvedor Python",
+      "Engenheiro de Software",
+      "Desenvolvedor Frontend",
+      "Desenvolvedor Backend",
+      "Desenvolvedor Full Stack",
+      "Desenvolvedor backend",
+      "Desenvolvedor Front-end",
+      "Python",
+      "FastAPI",
+      "Django",
+      "React",
+      "Next.js",
+      "NextJS",
+      "JavaScript",
+      "TypeScript"
+    ],
     "localidade": "Brasil",
     "modalidade": "Remoto",
     "tempo_maximo_publicacao_horas": 48
@@ -28,7 +28,7 @@
   "automacao": {
     "navegacao_controlada": true,
     "interromper_em_captcha": true,
-    "notificar_via_telegram": false,
+    "notificar_via_telegram": true,
     "tentar_auto_apply_simplificado": false,
     "dry_run": false
   },
@@ -57,10 +57,16 @@
   },
   "analise_semantica": {
     "ativa": true,
-    "prompt_version": "semantic-v1",
+    "prompt_version": "semantic-v2",
     "provedor": "nvidia",
     "modelo": "z-ai/glm-5.2",
     "limiar_aplicar": 75,
     "limiar_revisar": 50
+  },
+  "resumo_diario": {
+    "ativo": true,
+    "agendamento_cron": "0 8 * * *",
+    "fuso_horario": "America/Recife",
+    "maximo_analises_por_execucao": 20
   }
 }

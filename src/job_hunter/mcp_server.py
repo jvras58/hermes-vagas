@@ -10,6 +10,7 @@ from job_hunter.application import (
     executar_varredura_linkedin_posts,
     executar_varredura_mock,
 )
+from job_hunter.daily_digest import ServicoResumoDiario
 from job_hunter.persistence.repository import RepositorioVagas
 from job_hunter.schemas import AnaliseSemanticaEntrada, Plataforma
 from job_hunter.semantic_analysis import ServicoAnaliseSemantica
@@ -112,6 +113,31 @@ def list_semantic_results(
     """Lista análises semânticas persistidas, sem iniciar candidaturas."""
     servico = ServicoAnaliseSemantica(WORKSPACE, dry_run=dry_run)
     return servico.listar_resultados(limit)
+
+
+@mcp.tool()
+def get_daily_digest_plan() -> dict[str, Any]:
+    """Retorna cron, fuso, limite e prompt do fluxo diário de produção.
+
+    Esta chamada não cria o agendamento, não executa a busca e não consome
+    créditos. O Hermes deve pedir confirmação antes de criar um cron real.
+    """
+    servico = ServicoResumoDiario(WORKSPACE, dry_run=False)
+    return servico.obter_plano_agendamento()
+
+
+@mcp.tool()
+def build_daily_digest(
+    dry_run: bool = False,
+    date: str | None = None,
+) -> dict[str, Any]:
+    """Consolida as análises de uma data e prepara um anexo para o Telegram.
+
+    `date` é opcional e usa AAAA-MM-DD. Sem ela, vale a data atual no fuso
+    configurado. A ferramenta apenas lê análises já salvas e gera Markdown.
+    """
+    servico = ServicoResumoDiario(WORKSPACE, dry_run=dry_run)
+    return servico.gerar(data_referencia=date)
 
 
 def main() -> None:
